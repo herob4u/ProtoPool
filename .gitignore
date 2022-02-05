@@ -1,0 +1,14 @@
+# Blacklist files/folders in same directory as the .gitignore file
+/*
+
+# Whitelist some files
+!.gitignore
+!README.md
+
+# Whitelist folders
+!ProtoPool.sln
+!Bootstrap.csproj
+!ClientNetworkTransform.csproj
+!Assets/
+
+# For more, see https://stackoverflow.com/questions/987142/make-gitignore-ignore-everything-except-a-few-files
