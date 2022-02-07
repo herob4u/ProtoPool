@@ -396,38 +396,29 @@ public class PoolGameDirector : NetworkBehaviour
         int prevPlayerIdx = CurrentPlayerIdx;
         CurrentPlayerIdx = GetNextTurnPlayerIdx();
 
-        if(CurrentPlayerIdx != prevPlayerIdx)
+        PoolGamePlayer gamePlayer = GamePlayers[CurrentPlayerIdx];
+        if (CurrentPlayerIdx != prevPlayerIdx)
         {
-            PoolGamePlayer gamePlayer = GamePlayers[CurrentPlayerIdx];
             SetGamePlayerActive(gamePlayer, true, true);
-
-            // Instruct the owning player to target the cue ball.
-            PoolBall cueBall = PoolTableObj.GetComponent<PoolTable>().GetCueBall();
-
-            if(cueBall)
-            {
-                gamePlayer.CueObject.GetComponent<PoolCue>().AcquireBall(cueBall);
-                gamePlayer.CueObject.GetComponent<PoolCue>().SetIsServing(true);
-            }
-            else
-            {
-                gamePlayer.CueObject.GetComponent<PoolCue>().ResetAcquistion();
-                gamePlayer.CueObject.GetComponent<PoolCue>().SetIsServing(false);
-
-                // Throw an error here...
-
-                Debug.LogError("AdvanceTurn failed - could not find cue ball.");
-            }
         }
 
-        /*
-        // Disable current player
-        SetGamePlayerActive(GamePlayers[CurrentPlayerIdx], false);
+        // Instruct the owning player to target the cue ball.
+        PoolBall cueBall = PoolTableObj.GetComponent<PoolTable>().GetCueBall();
 
+        if (cueBall)
+        {
+            gamePlayer.CueObject.GetComponent<PoolCue>().AcquireBall(cueBall);
+            gamePlayer.CueObject.GetComponent<PoolCue>().SetIsServing(true);
+        }
+        else
+        {
+            gamePlayer.CueObject.GetComponent<PoolCue>().ResetAcquistion();
+            gamePlayer.CueObject.GetComponent<PoolCue>().SetIsServing(false);
 
-        // Activate next player
-        SetGamePlayerActive(GamePlayers[CurrentPlayerIdx], true);
-        */
+            // Throw an error here...
+
+            Debug.LogError("AdvanceTurn failed - could not find cue ball.");
+        }
     }
 
     // Overridable method for determining who gets to play next turn

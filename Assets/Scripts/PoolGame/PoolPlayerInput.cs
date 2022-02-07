@@ -15,7 +15,8 @@ public class PoolPlayerInput : MonoBehaviour
 
     [Range(0.0f, 1.0f)]
     public float SwingConfirmationThreshold = 0.05f;
-
+    public Vector2 SwingAxisMultiplier = new Vector2(1.0f, 1.0f);
+    public Vector2 TurnAxisMultiplier = new Vector2(1.0f, 1.0f);
     private float swingActionTimer = 0.0f;
 
     // Start is called before the first frame update
@@ -99,7 +100,7 @@ public class PoolPlayerInput : MonoBehaviour
 
             if (swingActionTimer >= SwingActionDeadTime)
             {
-                cue.OnSwingInput(turnY);
+                cue.OnSwingInput(turnX * SwingAxisMultiplier.x, turnY * SwingAxisMultiplier.y);
                 //cue.OnDebugHitCue(5.0f);
                 return;
             }
@@ -124,7 +125,7 @@ public class PoolPlayerInput : MonoBehaviour
                 return;
             }
 
-            cue.OnTurnInput(turnX, turnY);
+            cue.OnTurnInput(turnX * TurnAxisMultiplier.x, turnY * TurnAxisMultiplier.y);
         }
     }
 }

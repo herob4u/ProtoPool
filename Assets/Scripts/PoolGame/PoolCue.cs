@@ -41,13 +41,23 @@ public class PoolCue : NetworkBehaviour
     private NetworkVariable<bool> bIsServing = new NetworkVariable<bool>();
     private PoolPlayerCameraMgr CameraMgr = null;
 
+    protected enum ECueState
+    {
+        None,
+        Turn,
+        Swing,
+        BackSwing
+    };
+
+    private ECueState cueState = ECueState.None;
+
     // Start is called before the first frame update
     void Start()
     {
 
     }
 
-    public virtual void NetworkStart()
+    public override void OnNetworkSpawn()
     {
         bIsServing.Value = false;
 
@@ -107,6 +117,22 @@ public class PoolCue : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
+        if(IsClient)
+        {
+            // Performing a backswing, wait for it to finish and commit the hit
+            if(cueState == ECueState.BackSwing)
+            {
+                PoolCuePositioner cuePositioner = GetComponent<PoolCuePositioner>();
+                if(cuePositioner.GetPullPct() == 0.0f)
+                {
+                    OnBackSwingCompleted();
+                }
+                else
+                {
+                    cuePositioner.SetPullPct(cuePositioner.GetPullPct() - ((1.0f / 0.125f) * Time.deltaTime));
+                }
+            }
+        }
     }
 
     bool SetCosmetic(int cosmeticId)
@@ -279,14 +305,62 @@ public class PoolCue : NetworkBehaviour
         }
     }
 
-    public void OnSwingInput(float delta)
+    void SetCueState(ECueState state)
     {
-        CurrentSwingPct = Mathf.Clamp(CurrentSwingPct + delta, 0.0f, 1.0f);
+        if(cueState != state)
+        {
+            cueState = state;
+        }
+    }
+
+    public void OnSwingInput(float dx, float dy)
+    {
+        if (dx == 0 && dy == 0)
+        {
+            return;
+        }
+
+        if (cueState == ECueState.BackSwing)
+        {
+            return;
+        }
+
+        SetCueState(ECueState.Swing);
+
+        Vector3 cueDir = gameObject.transform.forward;
+
+        float pullAmount = 0.0f;
+        if (CameraMgr && CameraMgr.IsTopDownCameraEnabled())
+        {
+            Vector3 inputRayLocal = new Vector3(dy, 0.0f, -dx);
+
+            Debug.DrawLine(gameObject.transform.position, gameObject.transform.position + cueDir * 30.0f, Color.yellow);
+            Debug.DrawLine(gameObject.transform.position, gameObject.transform.position + inputRayLocal * 30.0f, Color.red);
+            //Debug.LogFormat("Cue Dir: {0}\nInput Dir: {1}", cueDir, inputDirWorld);
+
+            // Increase pull amount if we are pulling away, hence the negation.
+            pullAmount = -Vector3.Dot(cueDir, inputRayLocal);
+            Debug.LogFormat("Pull Amount: {0}", pullAmount);
+        }
+        else
+        {
+            pullAmount -= dy;
+        }
+
+        CurrentSwingPct = Mathf.Clamp(CurrentSwingPct + pullAmount, 0.0f, 1.0f);
+
         GetComponent<PoolCuePositioner>().SetPullPct(CurrentSwingPct);
     }
 
     public void OnTurnInput(float dx, float dy)
     {
+        if(cueState == ECueState.BackSwing)
+        {
+            return;
+        }
+
+        SetCueState(ECueState.Turn);
+
         PoolCuePositioner cuePositioner = GetComponent<PoolCuePositioner>();
 
         if (CameraMgr && CameraMgr.IsTopDownCameraEnabled())
@@ -306,7 +380,15 @@ public class PoolCue : NetworkBehaviour
             return;
         }
 
-        if(ServingPoolBall)
+        SetCueState(ECueState.BackSwing);
+        GetComponent<PoolPlayerInput>().enabled = false;
+    }
+
+    void OnBackSwingCompleted()
+    {
+        GetComponent<PoolPlayerInput>().enabled = true;
+
+        if (ServingPoolBall)
         {
             PoolHitNetData hitData;
             hitData.PlayerNetId = OwnerClientId;
@@ -320,6 +402,8 @@ public class PoolCue : NetworkBehaviour
         ServingPoolBall = null;
 
         CurrentSwingPct = 0.0f;
+
+        SetCueState(ECueState.None);
     }
 
     public void CancelSwing()
@@ -330,6 +414,9 @@ public class PoolCue : NetworkBehaviour
         }
 
         CurrentSwingPct = 0.0f;
+        GetComponent<PoolCuePositioner>().SetPullPct(CurrentSwingPct);
+
+        SetCueState(ECueState.Turn);
     }
 
     public float GetSwingPct()

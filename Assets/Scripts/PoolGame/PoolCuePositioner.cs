@@ -12,11 +12,16 @@ public class PoolCuePositioner : MonoBehaviour
 
     public bool bIsPitchIgnored = false;
     public bool bIsYawIgnored = false;
+    public bool bInterpolatePull = false;
 
-    private float PullPct = 0;
+    [Min(0.0f)]
+    public float InterpolateDuration = 0.1f;
+
+    private float PullPct = 0.0f;
+    private float DesiredPullPct = 0.0f;
 
     [Min(0)]
-    public float MaxPullDistance = 12;
+    public float MaxPullDistance = 0.2f;
 
     // Start is called before the first frame update
     void Start()
@@ -30,6 +35,11 @@ public class PoolCuePositioner : MonoBehaviour
         if(!OrbitCenter)
         {
             return;
+        }
+
+        if(PullPct != DesiredPullPct)
+        {
+            PullPct = Mathf.MoveTowards(PullPct, DesiredPullPct, (MaxPullDistance / InterpolateDuration) * Time.deltaTime);
         }
 
         float totalOffset = OrbitOffset + (PullPct * MaxPullDistance);
@@ -58,7 +68,15 @@ public class PoolCuePositioner : MonoBehaviour
 
     public void SetPullPct(float pct)
     {
-        PullPct = Mathf.Clamp(pct, 0.0f, 1.0f);
+        if(bInterpolatePull)
+        {
+            DesiredPullPct = pct;
+        }
+        else
+        {
+            PullPct = Mathf.Clamp(pct, 0.0f, 1.0f);
+            DesiredPullPct = PullPct;
+        }
     }
 
     public void SetOrbitOrientation(float pitch, float yaw)
