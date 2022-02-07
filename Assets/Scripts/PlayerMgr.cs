@@ -14,7 +14,6 @@ public class PlayerMgr : MonoBehaviour
     public List<Player> Players = new List<Player>();
 
     public static PlayerMgr Instance { get; private set; }
-    private static int PlayerIdCounter = 0;
 
     public virtual void Awake()
     {

@@ -1,31 +1,39 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 public class PoolPlayerInput : MonoBehaviour
 {
     const string AXIS_ACTION = "Action";
     const string AXIS_ACTION_ALT = "ActionAlt";
-    const string AXIS_MOUSE_X = "TurnCue X";
-    const string AXIS_MOUSE_Y = "TurnCue Y";
+    const string AXIS_TURN_CUE_X = "TurnCue X";
+    const string AXIS_TURN_CUE_Y = "TurnCue Y";
+
+    // Duration in seconds to hold the action input for it to register for a swing, otherwise users miscliking can accidently enter and release a swing immediately.
+    public float SwingActionDeadTime = 0.1f;
+
+    [Range(0.0f, 1.0f)]
+    public float SwingConfirmationThreshold = 0.05f;
+
+    private float swingActionTimer = 0.0f;
 
     // Start is called before the first frame update
     void Start()
     {
-        
+        // In a networked game, this component must have been only added to the owner of the object.
+        NetworkObject networkObject = GetComponent<NetworkObject>();
+        if (networkObject != null && !networkObject.IsOwner)
+        {
+            Debug.LogError("Attempting to add PoolPlayerInput on an object not owned by client. Removing self...");
+            Destroy(this);
+        }
     }
 
     // Update is called once per frame
     void Update()
     {
         PoolCue cue = GetComponent<PoolCue>();
-
-        if (Input.GetButtonDown(AXIS_ACTION))
-        {
-        }
-        else if(Input.GetButtonUp(AXIS_ACTION))
-        {
-        }
 
         // Restarts game
         if(Input.GetKeyDown(KeyCode.R))
@@ -34,6 +42,7 @@ public class PoolPlayerInput : MonoBehaviour
             {
                 Debug.Log("Restarting game...");
                 PoolGameDirector.Instance.RestartGame();
+                return;
             }
         }
 
@@ -43,7 +52,8 @@ public class PoolPlayerInput : MonoBehaviour
             if(PoolGameDirector.Instance && PoolGameDirector.Instance.GetPoolTable())
             {
                 PoolBall cueBall = PoolGameDirector.Instance.GetPoolTable().GetCueBall();
-                cue.OnAcquireCueBall(cueBall);
+                cue.AcquireBall(cueBall);
+                return;
             }
 
         }
@@ -58,28 +68,63 @@ public class PoolPlayerInput : MonoBehaviour
                 if(cameraMgr)
                 {
                     cameraMgr.ToggleCamera();
+                    return;
                 }
             }
         }
 
-        float mouseX, mouseY;
-        mouseX = Input.GetAxis(AXIS_MOUSE_X) * Time.deltaTime;
-        mouseY = Input.GetAxis(AXIS_MOUSE_Y) * Time.deltaTime;
+        if(cue.GetIsServing())
+        {
+            HandleCueInput();
+        }
+    }
+
+    void HandleCueInput()
+    {
+        PoolCue cue = GetComponent<PoolCue>();
+
+        float turnX, turnY;
+        turnX = Input.GetAxis(AXIS_TURN_CUE_X) * Time.deltaTime;
+        turnY = Input.GetAxis(AXIS_TURN_CUE_Y) * Time.deltaTime;
 
         if (Input.GetButton(AXIS_ACTION))
         {
-            if(cue.GetIsServing())
+            // Just pressed the alt action? User wants to cancel their input
+            if(Input.GetButtonDown(AXIS_ACTION_ALT))
             {
-                //cue.OnSwingInput(mouseY);
-                cue.OnDebugHitCue(5.0f);
+                cue.CancelSwing();
+                swingActionTimer = 0.0f;
+                return;
+            }
+
+            if (swingActionTimer >= SwingActionDeadTime)
+            {
+                cue.OnSwingInput(turnY);
+                //cue.OnDebugHitCue(5.0f);
+                return;
+            }
+            else
+            {
+                swingActionTimer += Time.deltaTime;
+                return;
             }
         }
         else
         {
-            if (cue.GetIsServing())
+            swingActionTimer = 0.0f;
+
+            if (cue.GetSwingPct() >= SwingConfirmationThreshold)
             {
-                cue.OnTurnInput(mouseX, mouseY);
+                cue.CompleteSwing();
+                return;
             }
+            else if (cue.GetSwingPct() > 0.0f)
+            {
+                cue.CancelSwing();
+                return;
+            }
+
+            cue.OnTurnInput(turnX, turnY);
         }
     }
 }

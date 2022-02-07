@@ -98,7 +98,7 @@ public class PoolBall : NetworkBehaviour
 
     private bool bIsInPlay = true;
 
-    public virtual void OnNetworkSpawn()
+    public override void OnNetworkSpawn()
     {
         if (IsServer)
         {
@@ -159,7 +159,10 @@ public class PoolBall : NetworkBehaviour
             return;
         }
 
-        OnLaunch(launchData);
+        Debug.LogWarning("OnLaunch_ServerRpc: WIP, don't expect this to be called on a client");
+        return;
+
+        //OnLaunch(launchData);
     }
 
     public void OnLaunch(LaunchNetData launchData)
@@ -169,7 +172,17 @@ public class PoolBall : NetworkBehaviour
             if (BallRigidBody)
             {
                 BallRigidBody.velocity = launchData.OverrideVelocity.magnitude == 0 ? launchData.ImpactForce * launchData.ImpactDirection.normalized : launchData.OverrideVelocity;
-                OnBallLaunched.Invoke(this);
+
+                if(OnBallLaunched != null)
+                {
+                    OnBallLaunched.Invoke(this);
+                }
+
+                PoolTable poolTable = GetPoolTable();
+                if(poolTable)
+                {
+                    poolTable.NotifyBallLaunched(this);
+                }
             }
         }
         else
@@ -203,6 +216,11 @@ public class PoolBall : NetworkBehaviour
     public EPoolBallType GetBallType()
     {
         return BallDescriptor.BallType;
+    }
+
+    public PoolTable GetPoolTable()
+    {
+        return GetComponentInParent<PoolTable>();
     }
 
     private void InitFromDescriptor(PoolBallDescriptor descriptor)

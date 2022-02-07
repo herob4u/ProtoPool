@@ -4,10 +4,11 @@ using Unity.Netcode;
 using UnityEngine;
 
 // The pool table, and to an effect, the container to most objects (i.e balls, cues)
-public class PoolTable : MonoBehaviour
+public class PoolTable : NetworkBehaviour
 {
     // Called whenever the balls have come to rest.
     public delegate void OnPoolBallsStoppedDelegate();
+    public delegate void OnPoolBallLaunchedDelegate(PoolBall ball);
     public delegate void OnPoolBallScoredDelegate(PoolBall ball, PoolGamePlayer byPlayer);
 
     public static int NumPoolBalls = 16;
@@ -22,13 +23,31 @@ public class PoolTable : MonoBehaviour
     public OnPoolBallsStoppedDelegate OnPoolBallsStopped { get; set; }
     public OnPoolBallScoredDelegate OnPoolBallScored { get; set; }
 
+    public OnPoolBallLaunchedDelegate OnPoolBallLaunched { get; set; }
+
     private PoolBall[] PoolBalls = new PoolBall[NumPoolBalls];
     private bool bAreBallsMoving = false;
 
     // Start is called before the first frame update
     void Awake()
     {
+        // If no networking, just spawn immediately, no spawning dependencies.
+        if(GetComponent<NetworkObject>() == null)
+        {
+            InitPoolBalls();
+        }
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
         InitPoolBalls();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
     }
 
     private void OnTriggerExit(Collider other)
@@ -135,10 +154,14 @@ public class PoolTable : MonoBehaviour
         bAreBallsMoving = true;
     }
 
-    //@todo: hack
-    public void OnBallLaunched()
+    public void NotifyBallLaunched(PoolBall ball)
     {
         bAreBallsMoving = true;
+
+        if(OnPoolBallLaunched != null)
+        {
+            OnPoolBallLaunched.Invoke(ball);
+        }
     }
 
     public void SetBallsFrozen(bool frozen)
@@ -167,7 +190,8 @@ public class PoolTable : MonoBehaviour
     private GameObject MakeBall(EPoolBallType ballType)
     {
         //Debug.LogFormat("Making ball type: {0}", ballType.ToString());
-        GameObject ballObj = PoolBallPrefab ? GameObject.Instantiate<GameObject>(PoolBallPrefab) : new GameObject();
+        // We define our pool balls such that they are owned/contained by the pool table. That way, the balls in play can readily access the pool table as a parent when needed.
+        GameObject ballObj = PoolBallPrefab ? Instantiate<GameObject>(PoolBallPrefab) : new GameObject();
 
         PoolBall poolBall = ballObj.GetComponent<PoolBall>();
         if(!poolBall)
@@ -188,6 +212,9 @@ public class PoolTable : MonoBehaviour
         {
             networkObject.Spawn();
         }
+
+        // Network object can only be reparented after being spawned.
+        ballObj.transform.SetParent(this.transform, true);
 
         return ballObj;
     }
