@@ -8,22 +8,19 @@ public class Player : MonoBehaviour
     public List<PlayerGameInfo> PlayerGameInfos;
 
     public string PlayerName { get; private set; }
-    public ulong LocalId { get; private set; }
     public ulong NetId { get; private set; }
 
     // Start is called before the first frame update
     void Start()
     {
-        if(GetComponent<NetworkObject>().IsLocalPlayer)
-        {
-            NetId = NetworkManager.Singleton.LocalClientId;
-        }
+        NetId = GetComponent<NetworkObject>().OwnerClientId;
 
         PlayerMgr.Instance.NotifyPlayerJoined(this);
     }
 
     private void Awake()
     {
+        Debug.LogFormat("Player created - id={0}, isLocal={1}", GetComponent<NetworkObject>().OwnerClientId, GetComponent<NetworkObject>().IsLocalPlayer);
     }
 
     private void OnDestroy()
@@ -34,12 +31,6 @@ public class Player : MonoBehaviour
     void Update()
     {
         
-    }
-
-    public void InitPlayer(string playerName, ulong localId)
-    {
-        PlayerName = playerName;
-        LocalId = localId;
     }
 
     public bool IsLocal()

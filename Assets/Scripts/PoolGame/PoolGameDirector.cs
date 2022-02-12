@@ -3,18 +3,21 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 using Unity.Netcode.Components;
+using Unity.Netcode.Samples;
 
 public class PoolGamePlayer
 {
     public Player Player;
     public GameObject CueObject;
     public int Score;
+    public bool IsReady { get; private set; }
 
     public PoolGamePlayer(Player player)
     {
         Player = player;
         CueObject = null;
         Score = 0;
+        IsReady = false;
     }
 
     public PoolGamePlayer(Player player, GameObject cueObj, int score)
@@ -22,6 +25,12 @@ public class PoolGamePlayer
         Player = player;
         CueObject = cueObj;
         Score = score;
+        IsReady = false;
+    }
+
+    public void SetAsReady()
+    {
+        IsReady = true;
     }
 }
 
@@ -123,17 +132,19 @@ public class PoolGameDirector : NetworkBehaviour
 
     public override void OnDestroy()
     {
+        EndGame();
+
+        PlayerMgr.Instance.OnPlayerJoined -= OnPlayerJoined;
+        PlayerMgr.Instance.OnPlayerLeft -= OnPlayerLeft;
+
         Instance = null;
     }
 
     // Start is called before the first frame update
     void Start()
     {
-        if(IsServer)
-        {
-            PlayerMgr.Instance.OnPlayerJoined += OnPlayerJoined;
-            PlayerMgr.Instance.OnPlayerLeft += OnPlayerLeft;
-        }
+        PlayerMgr.Instance.OnPlayerJoined += OnPlayerJoined;
+        PlayerMgr.Instance.OnPlayerLeft += OnPlayerLeft;
     }
 
     public override void OnNetworkSpawn()
@@ -142,6 +153,18 @@ public class PoolGameDirector : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void NotifyReadyServerRpc(ulong playerNetId)
+    {
+        foreach(PoolGamePlayer player in GamePlayers)
+        {
+            if(player.Player.NetId == playerNetId)
+            {
+                player.SetAsReady();
+            }
+        }
     }
 
     // Update is called once per frame
@@ -175,16 +198,32 @@ public class PoolGameDirector : NetworkBehaviour
 
     void OnPlayerJoined(Player player)
     {
-        // Both the client and servers should track the player members
         Debug.Log("PoolGameDirector - player joined");
-        GamePlayers.Add(new PoolGamePlayer(player));
 
-        Debug.LogFormat("IsLocalPlayer={0}, IsClient={1}, IsHost={2}, IsServer={3}", IsLocalPlayer, IsClient, IsHost, IsServer);
-
-        if (player.IsLocal())
+        if(IsServer)
         {
-            // Give the player their own camera manager
-            player.AddPlayerGameInfo<PoolPlayerCameraMgr>();
+            GamePlayers.Add(new PoolGamePlayer(player));
+        }
+
+        Debug.LogFormat("Player is {0}", player.IsLocal() ? "local" : "remote");
+        Debug.LogFormat("IsClient={0}, IsHost={1}, IsServer={2}", IsClient, IsHost, IsServer);
+
+        if (IsClient)
+        {
+            if (player.IsLocal())
+            {
+                // Give the player their own camera manager
+                player.AddPlayerGameInfo<PoolPlayerCameraMgr>();
+
+                if(IsSpawned)
+                {
+                    NotifyReadyServerRpc(player.NetId);
+                }
+                else
+                {
+                    Debug.LogWarning("Could not notify ready. NetObject not spawned yet");
+                }
+            }
         }
     }
     
@@ -192,14 +231,35 @@ public class PoolGameDirector : NetworkBehaviour
     {
         Debug.Log("PoolGameDirector - player left");
 
-        if(player.IsLocal())
+        if(IsServer)
         {
-            player.RemovePlayerGameInfo<PoolPlayerCameraMgr>();
+            GamePlayers.RemoveAll(p => { return p.Player == player; });
+        }
+
+        if(IsClient)
+        {
+            if (player.IsLocal())
+            {
+                player.RemovePlayerGameInfo<PoolPlayerCameraMgr>();
+            }
         }
     }
 
     bool CanStart()
     {
+        if(!IsServer)
+        {
+            return false;
+        }
+
+        foreach(PoolGamePlayer gamePlayer in GamePlayers)
+        {
+            if(!gamePlayer.IsReady)
+            {
+                return false;
+            }
+        }
+
         return GamePlayers.Count >= NumPlayers;
     }
 
@@ -230,7 +290,7 @@ public class PoolGameDirector : NetworkBehaviour
 
     void EndGame()
     {
-
+        DespawnPoolGame();
     }
 
     void SpawnPoolGame()
@@ -248,6 +308,7 @@ public class PoolGameDirector : NetworkBehaviour
             PoolTableObj.GetComponent<PoolTable>().OnPoolBallScored += OnPoolBallScored;
             PoolTableObj.GetComponent<PoolTable>().OnPoolBallLaunched += OnPoolBallLaunched;
 
+            PoolTableObj.name = "PoolTable";
             PoolTableObj.GetComponent<NetworkObject>().Spawn();
         }
         else
@@ -266,9 +327,8 @@ public class PoolGameDirector : NetworkBehaviour
             if (player != null)
             {
                 GameObject cueObj = Instantiate(DefaultSettings.DefaultPoolCuePrefab);
-                cueObj.name = player.PlayerName + "Cue";
-                cueObj.GetComponent<NetworkObject>().Spawn();
-                cueObj.GetComponent<NetworkObject>().ChangeOwnership(player.NetId);
+                cueObj.name = "Cue" + player.NetId;
+                cueObj.GetComponent<NetworkObject>().SpawnWithOwnership(player.NetId);
 
                 GamePlayers[i].CueObject = cueObj;
                 GamePlayers[i].Score = 0;
@@ -289,12 +349,13 @@ public class PoolGameDirector : NetworkBehaviour
             return;
         }
 
-        Destroy(PoolTableObj);
+        PoolTableObj.GetComponent<NetworkObject>().Despawn(true);
 
         foreach(PoolGamePlayer player in GamePlayers)
         {
             Debug.LogWarningFormat("Destroying cue {0}", player.CueObject.name);
-            Destroy(player.CueObject);
+            player.CueObject.GetComponent<NetworkObject>().Despawn();
+            //Destroy(player.CueObject);
             player.Score = 0;
         }
     }
@@ -408,12 +469,10 @@ public class PoolGameDirector : NetworkBehaviour
         if (cueBall)
         {
             gamePlayer.CueObject.GetComponent<PoolCue>().AcquireBall(cueBall);
-            gamePlayer.CueObject.GetComponent<PoolCue>().SetIsServing(true);
         }
         else
         {
             gamePlayer.CueObject.GetComponent<PoolCue>().ResetAcquistion();
-            gamePlayer.CueObject.GetComponent<PoolCue>().SetIsServing(false);
 
             // Throw an error here...
 
@@ -464,11 +523,7 @@ public class PoolGameDirector : NetworkBehaviour
                 Debug.LogWarning("OnPoolBallLaunched: pool ball is invalid");
             }
 
-            //GetActivePlayer().GetPlayerGameInfo<PoolPlayerCameraMgr>().EnableTopDownCamera();
-            //GetActivePoolPlayer().CueObject.GetComponent<PoolCuePositioner>().SetOrbitObject(null);
-            //GetActivePoolPlayer().CueObject.GetComponent<PoolCue>().SetIsServing(false);
             GetActivePoolPlayer().CueObject.GetComponent<PoolCue>().ResetAcquistion();
-            GetActivePoolPlayer().CueObject.GetComponent<PoolCue>().SetIsServing(false);
 
             OnPoolBallLaunchedClientRpc(poolBall.GetComponent<NetworkObject>().NetworkObjectId);
         }

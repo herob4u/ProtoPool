@@ -34,15 +34,15 @@ public class PlayerMgr : MonoBehaviour
         return Players;
     }
 
-    private void OnClientDisconnected(ulong localId)
+    private void OnClientDisconnected(ulong netId)
     {
-        Debug.LogFormat("Client disconnected: LocalID={0}", localId);
-        Player player = Players.Find(p => p.LocalId == localId);
+        Debug.LogFormat("Client disconnected: NetID={0}", netId);
+        Player player = Players.Find(p => p.NetId == netId);
     }
 
-    private void OnClientConnected(ulong localId)
+    private void OnClientConnected(ulong netId)
     {
-        Debug.LogFormat("Client connected: LocalID={0}", localId);
+        Debug.LogFormat("Client connected: NetID={0}", netId);
     }
 
     private void OnServerStarted()
@@ -54,13 +54,21 @@ public class PlayerMgr : MonoBehaviour
     {
         if(Players.Contains(player))
         {
-            Debug.LogWarningFormat("Player {0} already exists! Ensure clean up code is correct", player.LocalId);
+            Debug.LogWarningFormat("Player {0} already exists! Ensure clean up code is correct", player.NetId);
             return;
         }
 
-        Players.Add(player);
+        // Convention, keep local player as index 0
+        if(player.IsLocal())
+        {
+            Players.Insert(0, player);
+        }
+        else
+        {
+            Players.Add(player);
+        }
 
-        if(OnPlayerJoined != null)
+        if (OnPlayerJoined != null)
         {
             OnPlayerJoined.Invoke(player);
         }
@@ -71,7 +79,7 @@ public class PlayerMgr : MonoBehaviour
         bool removed = Players.Remove(player);
         if(!removed)
         {
-            Debug.LogWarningFormat("Failed to remove player {0}. Player was never added, ensure joining code is correct", player.LocalId);
+            Debug.LogWarningFormat("Failed to remove player {0}. Player was never added, ensure joining code is correct", player.NetId);
         }
 
         if(OnPlayerLeft != null)
@@ -103,5 +111,44 @@ public class PlayerMgr : MonoBehaviour
     void Update()
     {
         
+    }
+
+    private void OnGUI()
+    {
+        int numPlayers = Players.Count;
+        if(numPlayers < 1)
+        {
+            return;
+        }
+
+        GUILayout.BeginArea(new Rect(10, 10, 300, 100 * numPlayers));
+        {
+            GUILayout.BeginVertical("Players", GUIStyle.none);
+            {
+                int localIdx = 0;
+                foreach(Player player in Players)
+                {
+                    GUILayout.BeginHorizontal();
+                    {
+                        GUILayout.Label($"[{localIdx++}]");
+                        GUILayout.Label($"[NetId: {player.NetId}]");
+                        GUILayout.Label($"{(player.IsLocal() ? "Local" : "Remote")}");
+                        
+                        if(NetworkManager.Singleton.ServerClientId == player.NetId)
+                        {
+                            GUILayout.Label("Server");
+                        }
+                        else
+                        {
+                            GUILayout.Label("Client");
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+                }
+
+            }
+            GUILayout.EndVertical();
+        }
+        GUILayout.EndArea();
     }
 }

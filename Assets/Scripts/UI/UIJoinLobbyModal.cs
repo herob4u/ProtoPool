@@ -5,7 +5,8 @@ using UnityEngine.UI;
 
 public class UIJoinLobbyModal : MonoBehaviour
 {
-    private string ipAddress = "127.0.0.1";
+    private const string localAddress = "127.0.0.1";
+    private string ipAddress = localAddress;
 
     // Start is called before the first frame update
     void Start()
@@ -36,6 +37,15 @@ public class UIJoinLobbyModal : MonoBehaviour
 
     public void OnIPAddressChanged(string newIPAddress)
     {
-        ipAddress = newIPAddress;
+        if (newIPAddress == null
+            || newIPAddress.ToLower() == "localhost"
+            || newIPAddress.Length == 0)
+        {
+            ipAddress = localAddress;
+        }
+        else
+        {
+            ipAddress = newIPAddress;
+        }
     }
 }

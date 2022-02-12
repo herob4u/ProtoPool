@@ -42,7 +42,10 @@ public class PoolTable : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
-        InitPoolBalls();
+        if(IsServer)
+        {
+            InitPoolBalls();
+        }
     }
 
     public override void OnNetworkDespawn()
@@ -52,6 +55,11 @@ public class PoolTable : NetworkBehaviour
 
     private void OnTriggerExit(Collider other)
     {
+        if(!IsServer)
+        {
+            return;
+        }
+
         PoolBall ball = other.GetComponent<PoolBall>();
 
         if(!ball)
@@ -75,43 +83,64 @@ public class PoolTable : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
-        if(!bAreBallsMoving)
+        if(IsServer)
+        {
+            ServerUpdate();
+        }
+        else
+        {
+            ClientUpdate();
+        }
+    }
+
+    void ServerUpdate()
+    {
+        if (!bAreBallsMoving)
         {
             return;
         }
 
         bool areAllBallsStopped = true;
-        foreach(PoolBall ball in PoolBalls)
+        foreach (PoolBall ball in PoolBalls)
         {
-            if(ball)
+            if (ball)
             {
                 Rigidbody rigidbody = ball.GetComponent<Rigidbody>();
-                if(rigidbody)
+                if (rigidbody)
                 {
                     areAllBallsStopped &= rigidbody.IsSleeping();
                 }
             }
         }
 
-        if(areAllBallsStopped)
+        if (areAllBallsStopped)
         {
             bAreBallsMoving = false;
 
-            if(OnPoolBallsStopped != null)
+            if (OnPoolBallsStopped != null)
             {
                 OnPoolBallsStopped.Invoke();
             }
         }
     }
 
-    private void OnDestroy()
+    void ClientUpdate()
     {
-        foreach(PoolBall ball in PoolBalls)
+
+    }
+
+    public override void OnDestroy()
+    {
+        if(IsServer)
         {
-            if(ball)
+            foreach (PoolBall ball in PoolBalls)
             {
-                Debug.LogWarningFormat("Destroying {0}", ball.gameObject.name);
-                Destroy(ball.gameObject);
+                if (ball)
+                {
+                    Debug.LogWarningFormat("Destroying {0}", ball.gameObject.name);
+                    ball.GetComponent<NetworkObject>().Despawn(true);
+                    //Destroy(ball.gameObject);
+                }
             }
         }
     }

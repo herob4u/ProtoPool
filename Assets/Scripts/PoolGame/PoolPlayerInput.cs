@@ -26,7 +26,7 @@ public class PoolPlayerInput : MonoBehaviour
         NetworkObject networkObject = GetComponent<NetworkObject>();
         if (networkObject != null && !networkObject.IsOwner)
         {
-            Debug.LogError("Attempting to add PoolPlayerInput on an object not owned by client. Removing self...");
+            //Debug.LogError("Attempting to add PoolPlayerInput on an object not owned by client. Removing self...");
             Destroy(this);
         }
     }
@@ -74,7 +74,7 @@ public class PoolPlayerInput : MonoBehaviour
             }
         }
 
-        if(cue.GetIsServing())
+        if(cue.ServingPoolBall != null)
         {
             HandleCueInput();
         }

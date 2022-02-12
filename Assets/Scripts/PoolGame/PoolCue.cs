@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 
 public struct PoolHitNetData : INetworkSerializable
 {
@@ -19,7 +20,7 @@ public struct PoolHitNetData : INetworkSerializable
     }
 }
 [RequireComponent(typeof(PoolCuePositioner))]
-[RequireComponent(typeof(PoolPlayerInput))]
+//[RequireComponent(typeof(PoolPlayerInput))]
 public class PoolCue : NetworkBehaviour
 {
     public delegate void OnCueCompletedDelegate();
@@ -38,7 +39,6 @@ public class PoolCue : NetworkBehaviour
     // ...
 
     public PoolBall ServingPoolBall { get; private set; }
-    private NetworkVariable<bool> bIsServing = new NetworkVariable<bool>();
     private PoolPlayerCameraMgr CameraMgr = null;
 
     protected enum ECueState
@@ -59,11 +59,9 @@ public class PoolCue : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        bIsServing.Value = false;
-
         if(IsOwner)
         {
-            if(GetComponent<PoolPlayerInput>() == null)
+            if (GetComponent<PoolPlayerInput>() == null)
             {
                 gameObject.AddComponent<PoolPlayerInput>();
             }
@@ -72,7 +70,13 @@ public class PoolCue : NetworkBehaviour
             if (localPlayer != null)
             {
                 CameraMgr = localPlayer.GetPlayerGameInfo<PoolPlayerCameraMgr>();
+                if(CameraMgr)
+                {
+                    CameraMgr.TargetCueObject = gameObject;
+                }
             }
+
+            GetComponent<NetworkTransform>().CanCommitToTransform = true;
         }
     }
     
@@ -140,16 +144,6 @@ public class PoolCue : NetworkBehaviour
         return false;
     }
 
-    public void SetIsServing(bool isServing)
-    {
-        if(IsServer)
-        {
-            bIsServing.Value = isServing;
-        }
-    }
-
-    public bool GetIsServing() { return bIsServing.Value; }
-
     // Instructs this cue to target a specified ball
     public void AcquireBall(PoolBall poolBall)
     {
@@ -158,11 +152,14 @@ public class PoolCue : NetworkBehaviour
             return;
         }
 
-        // Server can force us to acquire a ball too if needed
-        if(IsOwner || IsServer)
+        if(IsServer)
         {
-            // Send the server the request for acquistion
-            AcquireBallServerRpc(poolBall.NetworkObjectId);
+            DoAcquireBall(poolBall);
+            AcquireBallClientRpc(poolBall.NetworkObjectId);
+        }
+        else if(IsOwner)
+        {
+            AcquireBallServerRpc(poolBall.NetworkObjectId); // Request the server to have us acquire this ball
         }
     }
 
@@ -184,6 +181,7 @@ public class PoolCue : NetworkBehaviour
     [ServerRpc]
     private void AcquireBallServerRpc(ulong ballObjNetId)
     {
+        // Got request to acquire ball
         if (IsServer)
         {
             // Can decide to verify to allow this or not...
@@ -207,12 +205,7 @@ public class PoolCue : NetworkBehaviour
             }
 
             // Hosts are both a client and server, they will finish setting the cue in the client RPC, so this is redundant.
-            ServingPoolBall = poolBall;
-            PoolCuePositioner cuePositioner = GetComponent<PoolCuePositioner>();
-            if(cuePositioner)
-            {
-                cuePositioner.SetOrbitObject(poolBall.gameObject);
-            }
+            DoAcquireBall(poolBall);
 
 
             // Notify clients so they update their state
@@ -246,6 +239,11 @@ public class PoolCue : NetworkBehaviour
             return;
         }
 
+        DoAcquireBall(poolBall);
+    }
+
+    private void DoAcquireBall(PoolBall poolBall)
+    {
         ServingPoolBall = poolBall;
         PoolCuePositioner cuePositioner = GetComponent<PoolCuePositioner>();
         if (cuePositioner)
@@ -253,7 +251,10 @@ public class PoolCue : NetworkBehaviour
             cuePositioner.SetOrbitObject(poolBall.gameObject);
         }
 
-        Cursor.lockState = CursorLockMode.Locked;
+        if(!IsClient)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+        }
     }
 
     [ClientRpc]
@@ -381,12 +382,25 @@ public class PoolCue : NetworkBehaviour
         }
 
         SetCueState(ECueState.BackSwing);
-        GetComponent<PoolPlayerInput>().enabled = false;
+        PoolPlayerInput poolPlayerInput = GetComponent<PoolPlayerInput>();
+        if(poolPlayerInput)
+        {
+            poolPlayerInput.enabled = false;
+        }
     }
 
     void OnBackSwingCompleted()
     {
-        GetComponent<PoolPlayerInput>().enabled = true;
+        if(!IsOwner)
+        {
+            return;
+        }
+
+        PoolPlayerInput poolPlayerInput = GetComponent<PoolPlayerInput>();
+        if (poolPlayerInput)
+        {
+            poolPlayerInput.enabled = true;
+        }
 
         if (ServingPoolBall)
         {

@@ -29,6 +29,8 @@ public class PoolPlayerCameraMgr : PlayerGameInfo
     static string TOP_CAMERASPOT_NAME = "TopCameraSpot";
     static string CUE_CAMERASPOT_NAME = "CueCameraSpot";
 
+    public GameObject TargetCueObject { get; set; }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -123,6 +125,16 @@ public class PoolPlayerCameraMgr : PlayerGameInfo
 
     void UpdateCueAimCamera()
     {
+        if(TargetCueObject)
+        {
+            Vector3 localForwardDir = TargetCueObject.transform.forward;
+            Vector3 localUpDir = TargetCueObject.transform.up;
+
+            CueAimCameraSpot.transform.position = (TargetCueObject.transform.position + (localUpDir * 0.1f) - (localForwardDir * 1.0f));
+            CueAimCameraSpot.transform.rotation = TargetCueObject.transform.rotation;
+        }
+
+        /*
         // Position ourselves in the forward direction of our cue
         PoolGamePlayer poolPlayer = PoolGameDirector.Instance.GetLocalPoolPlayer();
         if(poolPlayer != null)
@@ -136,5 +148,6 @@ public class PoolPlayerCameraMgr : PlayerGameInfo
                 CueAimCameraSpot.transform.rotation = poolPlayer.CueObject.transform.rotation;
             }
         }
+        */
     }
 }
