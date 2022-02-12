@@ -41,6 +41,9 @@ public class PoolCue : NetworkBehaviour
     public PoolBall ServingPoolBall { get; private set; }
     private PoolPlayerCameraMgr CameraMgr = null;
 
+    [SerializeField]
+    private GameObject DebugCursorObject;
+
     protected enum ECueState
     {
         None,
@@ -54,7 +57,8 @@ public class PoolCue : NetworkBehaviour
     // Start is called before the first frame update
     void Start()
     {
-
+        DebugCursorObject = Instantiate(DebugCursorObject);
+        DebugCursorObject.SetActive(false);
     }
 
     public override void OnNetworkSpawn()
@@ -355,7 +359,9 @@ public class PoolCue : NetworkBehaviour
 
     public void OnTurnInput(float dx, float dy)
     {
-        if(cueState == ECueState.BackSwing)
+        DebugCursorObject.SetActive(false);
+
+        if (cueState == ECueState.BackSwing)
         {
             return;
         }
@@ -366,7 +372,35 @@ public class PoolCue : NetworkBehaviour
 
         if (CameraMgr && CameraMgr.IsTopDownCameraEnabled())
         {
-            cuePositioner.OnOrbit(0.0f, dx);
+            if (!ServingPoolBall)
+            {
+                Debug.Log("No Serving ball");
+                return;
+            }
+
+            RaycastHit hitInfo;
+            if(!Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out hitInfo))
+            {
+                return;
+            }
+
+            //cuePositioner.OnOrbit(0.0f, dx);
+            Vector3 mousePosScreen = Input.mousePosition;
+            mousePosScreen.z = (hitInfo.distance + Camera.main.nearClipPlane) * 1.15f; // 1.15 fudge factor
+
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mousePosScreen);
+            mouseWorldPos.y = transform.position.y; // To keep our current elevation
+
+            DebugCursorObject.SetActive(true);
+            DebugCursorObject.transform.position = mouseWorldPos;
+
+            Vector3 desiredDir = (ServingPoolBall.transform.position - mouseWorldPos).normalized;
+            Debug.DrawRay(ServingPoolBall.transform.position, desiredDir, Color.red);
+
+            if (desiredDir.magnitude > 0.0f)
+            {
+                cuePositioner.SetOrbitDirection(desiredDir, true);
+            }
         }
         else
         {

@@ -43,12 +43,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a48a1a65e5d21b4c9a46f741f374dd6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  OverrideNumPlayers: 0
   NumPlayers: 1
-  DefaultSettings:
-    DefaultCueMesh: {fileID: 4284495879728275602, guid: 1e960411bf761094c808f422e06bd18c, type: 3}
-    DefaultCueMaterial: {fileID: 10302, guid: 0000000000000000f000000000000000, type: 0}
-    DefaultPoolTablePrefab: {fileID: 2083006741072642335, guid: 16944279cc1436f45aed89504ab66ac9, type: 3}
-    DefaultPoolCuePrefab: {fileID: 2219269447144571752, guid: 3ac1e3a799bec9f40a7c49752dae36b0, type: 3}
+  GameRules: {fileID: 11400000, guid: 463a431b7b22836418faa00286f03feb, type: 2}
 --- !u!1 &8488930364526152376
 GameObject:
   m_ObjectHideFlags: 0

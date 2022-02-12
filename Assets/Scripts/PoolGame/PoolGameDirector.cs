@@ -34,23 +34,6 @@ public class PoolGamePlayer
     }
 }
 
-[System.Serializable]
-public struct PoolGameDefaults
-{
-    public Mesh DefaultCueMesh;
-    public Material DefaultCueMaterial;
-    public GameObject DefaultPoolTablePrefab;
-    public GameObject DefaultPoolCuePrefab;
-
-    public PoolGameDefaults(Mesh cueMesh, Material cueMat, GameObject poolTableObj, GameObject poolCueObj)
-    {
-        DefaultCueMesh = cueMesh;
-        DefaultCueMaterial = cueMat;
-        DefaultPoolTablePrefab = poolTableObj;
-        DefaultPoolCuePrefab = poolCueObj;
-    }
-}
-
 /* Governs score keeping, and turn switching between players 
 /* The PoolGameDirector exists only on the server, and is the arbitrer of player turns.
 */
@@ -59,10 +42,12 @@ public class PoolGameDirector : NetworkBehaviour
     public delegate void OnPlayerTurnStarted(Player player, int playerIdx);
     public delegate void OnPlayerTurnEnded(Player player, int playerIdx);
 
-    [Range(1, 4)]
+    public bool OverrideNumPlayers = false;
+    [Range(1, 4), EditCondition("OverrideNumPlayers")]
     public int NumPlayers = 1;
 
-    public PoolGameDefaults DefaultSettings;
+    [SerializeField]
+    private PoolGameRules GameRules;
 
     // Lives on server only
     List<PoolGamePlayer> GamePlayers = new List<PoolGamePlayer>();
@@ -72,6 +57,17 @@ public class PoolGameDirector : NetworkBehaviour
     public static PoolGameDirector Instance { get; private set; }
     private GameObject PoolTableObj;
     
+    public PoolGameRules GetGameRules()
+    {
+        if(!IsServer)
+        {
+            Debug.LogError("GameRules only exists on server!");
+            return null;
+        }
+
+        return GameRules;
+    }
+
     public PoolTable GetPoolTable()
     {
         if(PoolTableObj)
@@ -145,6 +141,14 @@ public class PoolGameDirector : NetworkBehaviour
     {
         PlayerMgr.Instance.OnPlayerJoined += OnPlayerJoined;
         PlayerMgr.Instance.OnPlayerLeft += OnPlayerLeft;
+
+        if(IsServer)
+        {
+            if(!GameRules)
+            {
+                GameRules = new PoolGameRules();
+            }
+        }
     }
 
     public override void OnNetworkSpawn()
@@ -260,7 +264,12 @@ public class PoolGameDirector : NetworkBehaviour
             }
         }
 
-        return GamePlayers.Count >= NumPlayers;
+        if(OverrideNumPlayers)
+        {
+            return GamePlayers.Count >= NumPlayers;
+        }
+
+        return (GamePlayers.Count >= GameRules.MinPlayers) && (GamePlayers.Count <= GameRules.MaxPlayers);
     }
 
     void StartGame()
@@ -300,10 +309,11 @@ public class PoolGameDirector : NetworkBehaviour
             return;
         }
 
+        PoolGameAssets DefaultSettings = GameRules.GameAssets;
         // Spawn the pool table and its contents first. This gets automatically replicated to clients
-        if(DefaultSettings.DefaultPoolTablePrefab)
+        if(DefaultSettings.PoolTablePrefab)
         {
-            PoolTableObj = Instantiate(DefaultSettings.DefaultPoolTablePrefab);
+            PoolTableObj = Instantiate(DefaultSettings.PoolTablePrefab);
             PoolTableObj.GetComponent<PoolTable>().OnPoolBallsStopped += OnPoolBallsStoppedHandler;
             PoolTableObj.GetComponent<PoolTable>().OnPoolBallScored += OnPoolBallScored;
             PoolTableObj.GetComponent<PoolTable>().OnPoolBallLaunched += OnPoolBallLaunched;
@@ -326,7 +336,7 @@ public class PoolGameDirector : NetworkBehaviour
 
             if (player != null)
             {
-                GameObject cueObj = Instantiate(DefaultSettings.DefaultPoolCuePrefab);
+                GameObject cueObj = Instantiate(DefaultSettings.PoolCuePrefab);
                 cueObj.name = "Cue" + player.NetId;
                 cueObj.GetComponent<NetworkObject>().SpawnWithOwnership(player.NetId);
 

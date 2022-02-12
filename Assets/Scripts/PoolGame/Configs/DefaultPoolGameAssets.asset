@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b054c406531a0341a1beb3495fd6c7a, type: 3}
+  m_Name: DefaultPoolGameAssets
+  m_EditorClassIdentifier: 
+  CueMaterial: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  PoolTablePrefab: {fileID: 2083006741072642335, guid: 16944279cc1436f45aed89504ab66ac9, type: 3}
+  PoolCuePrefab: {fileID: 2219269447144571752, guid: 3ac1e3a799bec9f40a7c49752dae36b0, type: 3}

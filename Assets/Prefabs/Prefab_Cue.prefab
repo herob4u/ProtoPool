@@ -103,6 +103,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   DisplayMesh: {fileID: 0}
+  DebugCursorObject: {fileID: 5389735244918374725, guid: 5a8c04fc0a6233a4e976e9ac6883cb1e, type: 3}
 --- !u!23 &4408230130742802812
 MeshRenderer:
   m_ObjectHideFlags: 0

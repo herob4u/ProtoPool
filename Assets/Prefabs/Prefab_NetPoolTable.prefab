@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 6187591813815260749}
   - component: {fileID: -8138273017829084545}
   m_Layer: 0
-  m_Name: Prefab_NetPoolTable 1
+  m_Name: Prefab_NetPoolTable
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

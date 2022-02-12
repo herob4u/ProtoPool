@@ -610,7 +610,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 8488930364502714277, guid: a55362e87cf1f54488e7e37e8c220a5e, type: 3}
       propertyPath: NumPlayers
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8488930364526152374, guid: a55362e87cf1f54488e7e37e8c220a5e, type: 3}
       propertyPath: m_RootOrder

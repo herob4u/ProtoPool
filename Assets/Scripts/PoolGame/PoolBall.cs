@@ -3,41 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
-/* Typed, in order by the numbers they show */
-public enum EPoolBallType
-{
-    Cue = 0,
-    Solid_Yellow,
-    Solid_Blue,
-    Solid_Red,
-    Solid_Violet,
-    Solid_Orange,
-    Solid_Green,
-    Solid_Maroon,
-    Solid_Black,
-
-    Stripe_Yellow,
-    Stripe_Blue,
-    Stripe_Red,
-    Stripe_Violet,
-    Stripe_Orange,
-    Stripe_Green,
-    Stripe_Maroon,
-};
-
-[System.Serializable]
-public struct PoolBallDescriptor
-{
-    public Texture2D BallTexture;
-    public EPoolBallType BallType;
-
-    public PoolBallDescriptor(Texture2D texture, EPoolBallType ballType)
-    {
-        BallTexture = texture;
-        BallType = ballType;
-    }
-}
-
 public struct LaunchNetData
 {
     public Vector3 ImpactPoint;
@@ -209,8 +174,17 @@ public class PoolBall : NetworkBehaviour
 
     public void SetBallType(EPoolBallType ballType)
     {
-        PoolBallDescriptor descriptor = BallTypesDescriptors[ballType];
-        InitFromDescriptor(descriptor);
+        //PoolBallDescriptor descriptor = BallTypesDescriptors[ballType];
+        PoolBallAssetDb assetDb = PoolGameDirector.Instance.GetGameRules().BallAssets;
+
+        if(assetDb)
+        {
+            InitFromDescriptor(assetDb.Get(ballType));
+        }
+        else
+        {
+            Debug.LogWarning("PoolBallAssetDb not set - defaulting to cue ball");
+        }
     }
 
     public EPoolBallType GetBallType()
@@ -238,8 +212,10 @@ public class PoolBall : NetworkBehaviour
             return;
         }
 
-        Debug.LogWarning("@TODO: Use appropriate texture sampler name!");
-        //ballMat.SetTexture("diffuse", descriptor.BallTexture);
+        if(descriptor.BallTexture)
+        {
+            ballMat.SetTexture("_MainTex", descriptor.BallTexture);
+        }
 
         BallDescriptor = descriptor;
     }

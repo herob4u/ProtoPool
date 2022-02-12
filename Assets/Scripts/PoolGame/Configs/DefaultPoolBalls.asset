@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0033afa5c51670748a125988b47f216f, type: 3}
+  m_Name: DefaultPoolBalls
+  m_EditorClassIdentifier: 
+  Descriptors:
+  - BallTexture: {fileID: 0}
+    BallType: 0
+  - BallTexture: {fileID: 2800000, guid: 5fb08dcea19dfc747a391ed5914deb7c, type: 3}
+    BallType: 1
+  - BallTexture: {fileID: 2800000, guid: 9ed78d0e020855b4bbc7879c4b8f4701, type: 3}
+    BallType: 2
+  - BallTexture: {fileID: 2800000, guid: 3f9491305cea87c45a694d5297fe042c, type: 3}
+    BallType: 3
+  - BallTexture: {fileID: 2800000, guid: c2cc8496d2c2c314190f71a8470f021e, type: 3}
+    BallType: 4
+  - BallTexture: {fileID: 2800000, guid: 79a4fff7ef6cec3479af71b431858b42, type: 3}
+    BallType: 5
+  - BallTexture: {fileID: 2800000, guid: 2939cfe6d0ae34d42b2e351e04b4e50a, type: 3}
+    BallType: 6
+  - BallTexture: {fileID: 2800000, guid: 619ec7c154c384548918e605d6efa41d, type: 3}
+    BallType: 7
+  - BallTexture: {fileID: 2800000, guid: 8426356fc0c0c484a8f2798d7fb385da, type: 3}
+    BallType: 8
+  - BallTexture: {fileID: 2800000, guid: f7da2fe095c964846aef7e1b185cc2f4, type: 3}
+    BallType: 9
+  - BallTexture: {fileID: 2800000, guid: ad8ac01b8b49b0a47b64b2b90e0d12e7, type: 3}
+    BallType: 10
+  - BallTexture: {fileID: 2800000, guid: ebafce66f3c917c43a65882fc873b81b, type: 3}
+    BallType: 11
+  - BallTexture: {fileID: 2800000, guid: 0a2b5a24907808f489d543d54f399178, type: 3}
+    BallType: 12
+  - BallTexture: {fileID: 2800000, guid: 9915c35b1656e8245a03892095e770e2, type: 3}
+    BallType: 13
+  - BallTexture: {fileID: 2800000, guid: 40015cc5ae60abd4d880e457cdd49137, type: 3}
+    BallType: 14
+  - BallTexture: {fileID: 2800000, guid: cafe7dbd1be15ca4e99e27cab8561cf8, type: 3}
+    BallType: 15
