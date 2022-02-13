@@ -36,4 +36,12 @@ public class UIMainMenu : MonoBehaviour
     {
         JoinLobbyDialog.SetActive(true);
     }
+
+    public void OnDebug()
+    {
+        if(GetComponent<DynamicAudioComponent>())
+        {
+            GetComponent<DynamicAudioComponent>().PlaySound();
+        }
+    }
 }

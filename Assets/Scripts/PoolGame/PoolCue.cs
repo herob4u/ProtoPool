@@ -345,7 +345,7 @@ public class PoolCue : NetworkBehaviour
 
             // Increase pull amount if we are pulling away, hence the negation.
             pullAmount = -Vector3.Dot(cueDir, inputRayLocal);
-            Debug.LogFormat("Pull Amount: {0}", pullAmount);
+            //Debug.LogFormat("Pull Amount: {0}", pullAmount);
         }
         else
         {

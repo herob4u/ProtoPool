@@ -62,6 +62,15 @@ public struct PoolGameDefaults
     }
 }
 
+[System.Serializable]
+public struct ImpactEventInfo
+{
+    public GameObject OtherObject;
+    public GameObject Instigator;
+    public Vector3 Impulse;
+    public ContactPoint ImpactPoint;
+}
+
 public class ReadOnlyAttribute : PropertyAttribute
 {
 

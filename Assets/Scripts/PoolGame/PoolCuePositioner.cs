@@ -128,14 +128,14 @@ public class PoolCuePositioner : MonoBehaviour
         return dir;
     }
 
-    public void SetOrbitDirection(Vector3 dir, bool bIgnorePitch = false, bool bIgnoreYaw = false)
+    public void SetOrbitDirection(Vector3 dir, bool bKeepPitch = false, bool bKeepYaw = false)
     {
         // Rearranging above equations, we get...
         float yawRadian = Mathf.Atan2(dir.z, dir.x);
         float pitchRadian = Mathf.Asin(dir.y);
 
-        OrbitPitch = bIgnorePitch ? OrbitPitch : pitchRadian * Mathf.Rad2Deg;
-        OrbitYaw = bIgnoreYaw ? OrbitYaw : yawRadian * Mathf.Rad2Deg;
+        OrbitPitch = bKeepPitch ? OrbitPitch : pitchRadian * Mathf.Rad2Deg;
+        OrbitYaw = bKeepYaw ? OrbitYaw : yawRadian * Mathf.Rad2Deg;
 
         //Debug.LogFormat("Pitch={0}, Yaw={1}", OrbitPitch, OrbitYaw);
     }
