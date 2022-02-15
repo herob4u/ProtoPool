@@ -11,8 +11,6 @@ public class PoolTable : NetworkBehaviour
     public delegate void OnPoolBallLaunchedDelegate(PoolBall ball);
     public delegate void OnPoolBallScoredDelegate(PoolBall ball, PoolGamePlayer byPlayer);
 
-    public static int NumPoolBalls = 16;
-
     public BoxCollider PlayBox;
     public GameObject PoolBallPrefab;
 
@@ -25,7 +23,7 @@ public class PoolTable : NetworkBehaviour
 
     public OnPoolBallLaunchedDelegate OnPoolBallLaunched { get; set; }
 
-    private PoolBall[] PoolBalls = new PoolBall[NumPoolBalls];
+    private PoolBall[] PoolBalls = new PoolBall[Pool.NUM_BALLS];
     private bool bAreBallsMoving = false;
 
     // Start is called before the first frame update
@@ -161,7 +159,7 @@ public class PoolTable : NetworkBehaviour
         float spacing = PoolBallSpacing;
 
         int ballId = 1;
-        for(int row = 1; ballId < NumPoolBalls; row++)
+        for(int row = 1; ballId < Pool.NUM_BALLS; row++)
         {
             for(int i = 0; i < row; i++, ballId++)
             {
@@ -233,7 +231,7 @@ public class PoolTable : NetworkBehaviour
         Rigidbody rigidbody = ballObj.GetComponent<Rigidbody>();
         if(rigidbody)
         {
-            rigidbody.sleepThreshold = 0.012f; //0.000005f; // Roughly approximated from (0.5 * v^2), where v = 1mm/s
+            //rigidbody.sleepThreshold = 0.012f; //0.000005f; // Roughly approximated from (0.5 * v^2), where v = 1mm/s
         }
 
         NetworkObject networkObject = ballObj.GetComponent<NetworkObject>();
@@ -271,7 +269,7 @@ public class PoolTable : NetworkBehaviour
 
     public PoolBall GetBall(EPoolBallType ballType)
     {
-        if((int) ballType >= NumPoolBalls)
+        if((int) ballType >= Pool.NUM_BALLS)
         {
             Debug.LogError("BallType exceeds range of present balls.");
             return null;

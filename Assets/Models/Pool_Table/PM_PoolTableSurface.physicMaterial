@@ -7,8 +7,8 @@ PhysicMaterial:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: PM_PoolTableSurface
-  dynamicFriction: 0.96
-  staticFriction: 0.94
-  bounciness: 0.12
+  dynamicFriction: 0.12
+  staticFriction: 0.2
+  bounciness: 0.3
   frictionCombine: 0
   bounceCombine: 0

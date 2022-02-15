@@ -34,6 +34,20 @@ public class PoolGamePlayer
     }
 }
 
+/* An interface for listeners to interject and respond to the flow of the game. Listeners can dictate if a state change is allowed. */
+public abstract class IPoolGameHandler
+{
+    public abstract void OnTurnPreStart(PoolGamePlayer turnPlayer);
+    public abstract void OnTurnStarted(PoolGamePlayer turnPlayer);
+    public abstract void OnTurnPreEnd(PoolGamePlayer turnPlayer);
+    public abstract void OnTurnEnded(PoolGamePlayer turnPlayer);
+    public abstract void OnTurnAdvanced(PoolGamePlayer turnPlayer);
+
+    public virtual bool CanStartTurn() { return true; }
+    public virtual bool CanEndTurn() { return true; }
+    public virtual bool CanAdvanceTurn() { return true; }
+}
+
 /* Governs score keeping, and turn switching between players 
 /* The PoolGameDirector exists only on the server, and is the arbitrer of player turns.
 */
@@ -41,6 +55,11 @@ public class PoolGameDirector : NetworkBehaviour
 {
     public delegate void OnPlayerTurnStarted(Player player, int playerIdx);
     public delegate void OnPlayerTurnEnded(Player player, int playerIdx);
+
+    enum ETurnState
+    {
+        None = 0, Starting, Ending, Advancing
+    }
 
     public bool OverrideNumPlayers = false;
     [Range(1, 4), EditCondition("OverrideNumPlayers")]
@@ -51,8 +70,10 @@ public class PoolGameDirector : NetworkBehaviour
 
     // Lives on server only
     List<PoolGamePlayer> GamePlayers = new List<PoolGamePlayer>();
+    List<IPoolGameHandler> GameHandlers = new List<IPoolGameHandler>();
 
     private bool bHasStarted = false;
+    private NetworkVariable<ETurnState> TurnState = new NetworkVariable<ETurnState>(ETurnState.None);
     private int CurrentPlayerIdx = -1;
     public static PoolGameDirector Instance { get; private set; }
     private GameObject PoolTableObj;
@@ -198,6 +219,77 @@ public class PoolGameDirector : NetworkBehaviour
                 StartGame();
             }
         }
+        else if(TurnState.Value != ETurnState.None)
+        {
+            // Handle turn states
+            bool canTransition = true;
+
+            foreach(IPoolGameHandler handler in GameHandlers)
+            {
+                switch (TurnState.Value)
+                {
+                    case ETurnState.Starting: canTransition &= handler.CanStartTurn(); break;
+                    case ETurnState.Advancing: canTransition &= handler.CanAdvanceTurn(); break;
+                    case ETurnState.Ending: canTransition &= handler.CanEndTurn(); break;
+                }
+
+                if(!canTransition)
+                {
+                    break;
+                }
+            }
+
+            if(canTransition)
+            {
+                PoolGamePlayer turnPlayer = GetActivePoolPlayer();
+
+                switch (TurnState.Value)
+                {
+                    case ETurnState.Starting:
+                    {
+                        GameHandlers.ForEach(handler => handler.OnTurnPreStart(turnPlayer));
+                        StartTurn();
+                        GameHandlers.ForEach(handler => handler.OnTurnStarted(turnPlayer));
+                    }
+                    break;
+
+                    case ETurnState.Advancing:
+                    {
+                        AdvanceTurn();
+
+                        turnPlayer = GetActivePoolPlayer();
+                        GameHandlers.ForEach(handler => handler.OnTurnAdvanced(turnPlayer));
+                    }
+                    break;
+
+                    case ETurnState.Ending:
+                    {
+                        GameHandlers.ForEach(handler => handler.OnTurnPreEnd(turnPlayer));
+                        EndTurn();
+                        GameHandlers.ForEach(handler => handler.OnTurnEnded(turnPlayer));
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    void SetTurnState(ETurnState newState)
+    {
+        if(!IsServer)
+        {
+            return;
+        }
+
+        if(TurnState.Value != newState)
+        {
+            if( ! (((int)newState) > ((int)TurnState.Value) || newState == ETurnState.Starting && TurnState.Value == ETurnState.Advancing))
+            {
+                Debug.LogWarningFormat("Unexpected turn state transition, from {0} to {1}", TurnState.ToString(), newState.ToString());
+            }
+
+            TurnState.Value = newState;
+        }
     }
 
     void OnPlayerJoined(Player player)
@@ -283,7 +375,8 @@ public class PoolGameDirector : NetworkBehaviour
 
         SpawnPoolGame();
 
-        AdvanceTurn();
+        SetTurnState(ETurnState.Starting);
+        //AdvanceTurn();
     }
 
     public void RestartGame()
@@ -432,6 +525,16 @@ public class PoolGameDirector : NetworkBehaviour
         }
     }
 
+    void StartTurn()
+    {
+        if(!IsServer)
+        {
+            return;
+        }
+
+        SetTurnState(ETurnState.None);
+    }
+
     void EndTurn()
     {
         if(!IsServer)
@@ -453,7 +556,8 @@ public class PoolGameDirector : NetworkBehaviour
 
         Debug.Log("Turn End!");
 
-        AdvanceTurn();
+        SetTurnState(ETurnState.Advancing);
+        //AdvanceTurn();
     }
 
     public void AdvanceTurn()
@@ -488,6 +592,8 @@ public class PoolGameDirector : NetworkBehaviour
 
             Debug.LogError("AdvanceTurn failed - could not find cue ball.");
         }
+
+        SetTurnState(ETurnState.Starting);
     }
 
     // Overridable method for determining who gets to play next turn
@@ -564,7 +670,8 @@ public class PoolGameDirector : NetworkBehaviour
     private void OnPoolBallsStoppedHandler()
     {
         Debug.Log("Balls have stopped");
-        EndTurn();
+        SetTurnState(ETurnState.Ending);
+        //EndTurn();
     }
 
     private void OnPoolBallScored(PoolBall ball, PoolGamePlayer byPlayer)
