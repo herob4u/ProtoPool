@@ -11,7 +11,7 @@ public static class GameStatics
     public static System.Action OnGameResumed { get; set; }
     public static System.Action OnGameSpeedChanged { get; set; }
 
-    static void PauseGame()
+    public static void PauseGame()
     {
         if(!IsGamePaused)
         {
@@ -24,7 +24,7 @@ public static class GameStatics
         }
     }
 
-    static void ResumeGame()
+    public static void ResumeGame()
     {
         if(IsGamePaused)
         {
@@ -37,7 +37,7 @@ public static class GameStatics
         }
     }
 
-    static void SetGameSpeed(float multiplier)
+    public static void SetGameSpeed(float multiplier)
     {
         multiplier = Mathf.Clamp(multiplier, 0.01f, 10.0f);
         bool wasGamePaused = IsGamePaused;

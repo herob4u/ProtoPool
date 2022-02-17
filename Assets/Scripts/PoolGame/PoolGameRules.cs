@@ -60,6 +60,9 @@ public class PoolGameRules : ScriptableObject
     [Range(1, 4)]
     public int MinPlayers = 1;
 
+    [Range(1, 16)]
+    public int TurnsPerPlayer = 1;
+
     public EPoolBallType[] BallsInPlay;
 
     public PoolCondition[] WinCondition;

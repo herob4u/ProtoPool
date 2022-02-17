@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8488930364502714276}
   - component: {fileID: 8488930364502714277}
+  - component: {fileID: 2493504408761462143}
   m_Layer: 0
   m_Name: PoolGameDirector
   m_TagString: Untagged
@@ -45,7 +46,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   OverrideNumPlayers: 0
   NumPlayers: 1
+  FastForwardTime: 5
+  FastForwardSpeed: 2
   GameRules: {fileID: 11400000, guid: 463a431b7b22836418faa00286f03feb, type: 2}
+--- !u!114 &2493504408761462143
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8488930364502714278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20b40c6aecb972348adc1f6063e59afa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bAdvanceTurnOnStart: 0
 --- !u!1 &8488930364526152376
 GameObject:
   m_ObjectHideFlags: 0

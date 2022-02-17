@@ -5,32 +5,22 @@ using Unity.Netcode;
 using Unity.Netcode.Components;
 using Unity.Netcode.Samples;
 
-public class PoolGamePlayer
+public class PoolGamePlayer : GamePlayer
 {
-    public Player Player;
     public GameObject CueObject;
     public int Score;
-    public bool IsReady { get; private set; }
 
-    public PoolGamePlayer(Player player)
+    public PoolGamePlayer(Player player) : base(player)
     {
         Player = player;
         CueObject = null;
         Score = 0;
-        IsReady = false;
     }
 
-    public PoolGamePlayer(Player player, GameObject cueObj, int score)
+    public PoolGamePlayer(Player player, GameObject cueObj, int score) : base(player)
     {
-        Player = player;
         CueObject = cueObj;
         Score = score;
-        IsReady = false;
-    }
-
-    public void SetAsReady()
-    {
-        IsReady = true;
     }
 }
 
@@ -56,25 +46,27 @@ public class PoolGameDirector : NetworkBehaviour
     public delegate void OnPlayerTurnStarted(Player player, int playerIdx);
     public delegate void OnPlayerTurnEnded(Player player, int playerIdx);
 
-    enum ETurnState
-    {
-        None = 0, Starting, Ending, Advancing
-    }
-
     public bool OverrideNumPlayers = false;
     [Range(1, 4), EditCondition("OverrideNumPlayers")]
     public int NumPlayers = 1;
+
+    public float FastForwardTime = 5.0f;
+    [Range(1.0f, 4.0f)]
+    public float FastForwardSpeed = 2.0f;
+
+    PoolTurnController TurnController;
 
     [SerializeField]
     private PoolGameRules GameRules;
 
     // Lives on server only
     List<PoolGamePlayer> GamePlayers = new List<PoolGamePlayer>();
-    List<IPoolGameHandler> GameHandlers = new List<IPoolGameHandler>();
+
+    public bool HasGameStarted { get { return bHasStarted; } }
 
     private bool bHasStarted = false;
-    private NetworkVariable<ETurnState> TurnState = new NetworkVariable<ETurnState>(ETurnState.None);
-    private int CurrentPlayerIdx = -1;
+    private float FastForwardTimer;
+
     public static PoolGameDirector Instance { get; private set; }
     private GameObject PoolTableObj;
     
@@ -104,7 +96,7 @@ public class PoolGameDirector : NetworkBehaviour
     {
         if(bHasStarted)
         {
-            return GamePlayers[CurrentPlayerIdx].Player;
+            return TurnController.GetTurnPlayer().Player;
         }
 
         Debug.LogWarning("Game director did not start game yet - no active players available");
@@ -116,7 +108,7 @@ public class PoolGameDirector : NetworkBehaviour
     {
         if(bHasStarted)
         {
-            return GamePlayers[CurrentPlayerIdx];
+            return TurnController.GetTurnPlayer() as PoolGamePlayer;
         }
 
         Debug.LogWarning("Game director did not start game yet - no active pool 2players available");
@@ -154,6 +146,16 @@ public class PoolGameDirector : NetworkBehaviour
         PlayerMgr.Instance.OnPlayerJoined -= OnPlayerJoined;
         PlayerMgr.Instance.OnPlayerLeft -= OnPlayerLeft;
 
+        if(IsServer)
+        {
+            if(TurnController)
+            {
+                TurnController.OnPlayerAcquiredTurn -= OnPlayerAcquiredTurn;
+                TurnController.OnPlayerRelinquishedTurn -= OnPlayerRelinquishedTurn;
+                TurnController.OnPlayerContinuedTurn -= OnPlayerContinuedTurn;
+            }
+        }
+
         Instance = null;
     }
 
@@ -163,11 +165,21 @@ public class PoolGameDirector : NetworkBehaviour
         PlayerMgr.Instance.OnPlayerJoined += OnPlayerJoined;
         PlayerMgr.Instance.OnPlayerLeft += OnPlayerLeft;
 
-        if(IsServer)
+        // Initialize components...
+        TurnController = GetComponent<PoolTurnController>();
+
+        if (IsServer)
         {
             if(!GameRules)
             {
                 GameRules = new PoolGameRules();
+            }
+
+            if(TurnController)
+            {
+                TurnController.OnPlayerAcquiredTurn += OnPlayerAcquiredTurn;
+                TurnController.OnPlayerRelinquishedTurn += OnPlayerRelinquishedTurn;
+                TurnController.OnPlayerContinuedTurn += OnPlayerContinuedTurn;
             }
         }
     }
@@ -188,6 +200,11 @@ public class PoolGameDirector : NetworkBehaviour
             if(player.Player.NetId == playerNetId)
             {
                 player.SetAsReady();
+
+                if(TurnController)
+                {
+                    TurnController.AddPlayer(player);
+                }
             }
         }
     }
@@ -219,76 +236,19 @@ public class PoolGameDirector : NetworkBehaviour
                 StartGame();
             }
         }
-        else if(TurnState.Value != ETurnState.None)
+        else
         {
-            // Handle turn states
-            bool canTransition = true;
-
-            foreach(IPoolGameHandler handler in GameHandlers)
+            // Hande fast forward.
+            if(FastForwardTimer > 0)
             {
-                switch (TurnState.Value)
+                FastForwardTimer -= Time.deltaTime;
+                if(FastForwardTimer <= 0)
                 {
-                    case ETurnState.Starting: canTransition &= handler.CanStartTurn(); break;
-                    case ETurnState.Advancing: canTransition &= handler.CanAdvanceTurn(); break;
-                    case ETurnState.Ending: canTransition &= handler.CanEndTurn(); break;
-                }
-
-                if(!canTransition)
-                {
-                    break;
+                    GameStatics.SetGameSpeed(FastForwardSpeed);
+                    Debug.Log("Speeding up simulation");
                 }
             }
 
-            if(canTransition)
-            {
-                PoolGamePlayer turnPlayer = GetActivePoolPlayer();
-
-                switch (TurnState.Value)
-                {
-                    case ETurnState.Starting:
-                    {
-                        GameHandlers.ForEach(handler => handler.OnTurnPreStart(turnPlayer));
-                        StartTurn();
-                        GameHandlers.ForEach(handler => handler.OnTurnStarted(turnPlayer));
-                    }
-                    break;
-
-                    case ETurnState.Advancing:
-                    {
-                        AdvanceTurn();
-
-                        turnPlayer = GetActivePoolPlayer();
-                        GameHandlers.ForEach(handler => handler.OnTurnAdvanced(turnPlayer));
-                    }
-                    break;
-
-                    case ETurnState.Ending:
-                    {
-                        GameHandlers.ForEach(handler => handler.OnTurnPreEnd(turnPlayer));
-                        EndTurn();
-                        GameHandlers.ForEach(handler => handler.OnTurnEnded(turnPlayer));
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    void SetTurnState(ETurnState newState)
-    {
-        if(!IsServer)
-        {
-            return;
-        }
-
-        if(TurnState.Value != newState)
-        {
-            if( ! (((int)newState) > ((int)TurnState.Value) || newState == ETurnState.Starting && TurnState.Value == ETurnState.Advancing))
-            {
-                Debug.LogWarningFormat("Unexpected turn state transition, from {0} to {1}", TurnState.ToString(), newState.ToString());
-            }
-
-            TurnState.Value = newState;
         }
     }
 
@@ -329,6 +289,18 @@ public class PoolGameDirector : NetworkBehaviour
 
         if(IsServer)
         {
+            foreach (PoolGamePlayer gamePlayer in GamePlayers)
+            {
+                if (gamePlayer.Player == player)
+                {
+                    if (TurnController)
+                    {
+                        TurnController.RemovePlayer(gamePlayer);
+                    }
+                }
+            }
+
+            // @todo: refactor to avoid double iteration
             GamePlayers.RemoveAll(p => { return p.Player == player; });
         }
 
@@ -375,8 +347,11 @@ public class PoolGameDirector : NetworkBehaviour
 
         SpawnPoolGame();
 
-        SetTurnState(ETurnState.Starting);
-        //AdvanceTurn();
+        // Start the first turn of the game
+        if(TurnController)
+        {
+            TurnController.SetTurnState(SimpleTurnController.ETurnState.Advancing);
+        }
     }
 
     public void RestartGame()
@@ -525,88 +500,6 @@ public class PoolGameDirector : NetworkBehaviour
         }
     }
 
-    void StartTurn()
-    {
-        if(!IsServer)
-        {
-            return;
-        }
-
-        SetTurnState(ETurnState.None);
-    }
-
-    void EndTurn()
-    {
-        if(!IsServer)
-        {
-            return;
-        }
-
-        if(!bHasStarted)
-        {
-            return;
-        }
-
-        if(GamePlayers.Count == 0)
-        {
-            return;
-        }
-
-        // Check for end of game condition...
-
-        Debug.Log("Turn End!");
-
-        SetTurnState(ETurnState.Advancing);
-        //AdvanceTurn();
-    }
-
-    public void AdvanceTurn()
-    {
-        if(!IsServer)
-        {
-            return;
-        }
-
-        // If the turn player changed, make sure to update the active states of the respective cues.
-        int prevPlayerIdx = CurrentPlayerIdx;
-        CurrentPlayerIdx = GetNextTurnPlayerIdx();
-
-        PoolGamePlayer gamePlayer = GamePlayers[CurrentPlayerIdx];
-        if (CurrentPlayerIdx != prevPlayerIdx)
-        {
-            SetGamePlayerActive(gamePlayer, true, true);
-        }
-
-        // Instruct the owning player to target the cue ball.
-        PoolBall cueBall = PoolTableObj.GetComponent<PoolTable>().GetCueBall();
-
-        if (cueBall)
-        {
-            gamePlayer.CueObject.GetComponent<PoolCue>().AcquireBall(cueBall);
-        }
-        else
-        {
-            gamePlayer.CueObject.GetComponent<PoolCue>().ResetAcquistion();
-
-            // Throw an error here...
-
-            Debug.LogError("AdvanceTurn failed - could not find cue ball.");
-        }
-
-        SetTurnState(ETurnState.Starting);
-    }
-
-    // Overridable method for determining who gets to play next turn
-    protected int GetNextTurnPlayerIdx()
-    {
-        int nextIdx = CurrentPlayerIdx + 1;
-        if (nextIdx >= GamePlayers.Count)
-        {
-            nextIdx = 0;
-        }
-
-        return nextIdx;
-    }
 
     public bool TryStartGame()
     {
@@ -641,6 +534,8 @@ public class PoolGameDirector : NetworkBehaviour
 
             GetActivePoolPlayer().CueObject.GetComponent<PoolCue>().ResetAcquistion();
 
+            FastForwardTimer = FastForwardTime;
+
             OnPoolBallLaunchedClientRpc(poolBall.GetComponent<NetworkObject>().NetworkObjectId);
         }
     }
@@ -670,8 +565,14 @@ public class PoolGameDirector : NetworkBehaviour
     private void OnPoolBallsStoppedHandler()
     {
         Debug.Log("Balls have stopped");
-        SetTurnState(ETurnState.Ending);
-        //EndTurn();
+
+        FastForwardTimer = 0.0f;
+        GameStatics.SetGameSpeed(1.0f);
+
+        if(TurnController)
+        {
+            TurnController.SetTurnState(SimpleTurnController.ETurnState.Ending);
+        }
     }
 
     private void OnPoolBallScored(PoolBall ball, PoolGamePlayer byPlayer)
@@ -688,6 +589,78 @@ public class PoolGameDirector : NetworkBehaviour
             }
 
             byPlayer.Score++;
+        }
+    }
+
+    private void OnPlayerRelinquishedTurn(GamePlayer player)
+    {
+
+    }
+
+    private void OnPlayerAcquiredTurn(GamePlayer player)
+    {
+        if(player == null)
+        {
+            Debug.LogWarning("Received OnPlayerAcquiredTurn, but player is invalid");
+            return;
+        }
+
+        PoolGamePlayer poolPlayer = player as PoolGamePlayer;
+        if(poolPlayer == null)
+        {
+            Debug.LogWarningFormat("Received OnPlayerAcquiredTurn, but player {0} is not a PoolGamePlayer", poolPlayer.Player.NetId);
+            return;
+        }
+
+        SetGamePlayerActive(poolPlayer, true, true);
+
+        // Instruct the owning player to target the cue ball.
+        PoolBall cueBall = PoolTableObj.GetComponent<PoolTable>().GetCueBall();
+
+        if (cueBall)
+        {
+            poolPlayer.CueObject.GetComponent<PoolCue>().AcquireBall(cueBall);
+        }
+        else
+        {
+            poolPlayer.CueObject.GetComponent<PoolCue>().ResetAcquistion();
+
+            // Throw an error here...
+
+            Debug.LogError("OnPlayerAcquiredTurn failed - could not find cue ball.");
+        }
+    }
+
+    private void OnPlayerContinuedTurn(GamePlayer player)
+    {
+        if (player == null)
+        {
+            Debug.LogWarning("Received OnPlayerContinuedTurn, but player is invalid");
+            return;
+        }
+
+        PoolGamePlayer poolPlayer = player as PoolGamePlayer;
+        if (poolPlayer == null)
+        {
+            Debug.LogWarningFormat("Received OnPlayerContinuedTurn, but player {0} is not a PoolGamePlayer", poolPlayer.Player.NetId);
+            return;
+        }
+
+        // Instruct the owning player to target the cue ball.
+        // Just like the turn acquistion case, we want to reposition outselves w.r.t the cue ball
+        PoolBall cueBall = PoolTableObj.GetComponent<PoolTable>().GetCueBall();
+
+        if (cueBall)
+        {
+            poolPlayer.CueObject.GetComponent<PoolCue>().AcquireBall(cueBall);
+        }
+        else
+        {
+            poolPlayer.CueObject.GetComponent<PoolCue>().ResetAcquistion();
+
+            // Throw an error here...
+
+            Debug.LogError("OnPlayerContinuedTurn failed - could not find cue ball.");
         }
     }
 }
