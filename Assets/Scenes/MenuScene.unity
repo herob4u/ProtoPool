@@ -1075,6 +1075,7 @@ GameObject:
   - component: {fileID: 953797112}
   - component: {fileID: 953797111}
   - component: {fileID: 953797115}
+  - component: {fileID: 953797116}
   m_Layer: 0
   m_Name: BootstrapManager
   m_TagString: Untagged
@@ -1153,6 +1154,16 @@ MonoBehaviour:
       SourcePrefabToOverride: {fileID: 0}
       SourceHashToOverride: 0
       OverridingTargetPrefab: {fileID: 0}
+    - Override: 0
+      Prefab: {fileID: 5342884027697464326, guid: 6a34e0b5f0fbf184d8857d37bbcfd36f, type: 3}
+      SourcePrefabToOverride: {fileID: 0}
+      SourceHashToOverride: 0
+      OverridingTargetPrefab: {fileID: 0}
+    - Override: 0
+      Prefab: {fileID: 7823671377054599867, guid: ae302bec537e7ea4d939a989961739bf, type: 3}
+      SourcePrefabToOverride: {fileID: 0}
+      SourceHashToOverride: 0
+      OverridingTargetPrefab: {fileID: 0}
     TickRate: 30
     ClientConnectionBufferTimeout: 10
     ConnectionApproval: 0
@@ -1197,6 +1208,18 @@ MonoBehaviour:
   GameModeConfigs:
   - {fileID: 11400000, guid: c5e17df26ba0f8f46a84160d72b21528, type: 2}
   - {fileID: 11400000, guid: 5f9ca88206be334418557827b1b65594, type: 2}
+--- !u!114 &953797116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 953797110}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 404eb75a641bba247824aa94adee42fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &959727674
 GameObject:
   m_ObjectHideFlags: 0
@@ -1360,6 +1383,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Players: []
+  DebugGUIEnabled: 1
 --- !u!4 &1091853830
 Transform:
   m_ObjectHideFlags: 0

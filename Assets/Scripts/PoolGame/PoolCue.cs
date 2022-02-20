@@ -73,10 +73,15 @@ public class PoolCue : NetworkBehaviour
             Player localPlayer = PlayerMgr.Instance.GetLocalPlayer();
             if (localPlayer != null)
             {
-                CameraMgr = localPlayer.GetPlayerGameInfo<PoolPlayerCameraMgr>();
+                CameraMgr = localPlayer.GetPlayerComponent<PoolPlayerCameraMgr>();
                 if(CameraMgr)
                 {
                     CameraMgr.TargetCueObject = gameObject;
+                }
+
+                if (GetComponent<PoolPlayerInput>() == null)
+                {
+                    localPlayer.AddPlayerComponent<PoolPlayerInput>();
                 }
             }
 
@@ -93,10 +98,11 @@ public class PoolCue : NetworkBehaviour
             {
                 gameObject.SetActive(active);
 
-                PoolPlayerInput poolPlayerInput = GetComponent<PoolPlayerInput>();
+                PoolPlayerInput poolPlayerInput = PlayerMgr.Instance.GetLocalPlayer().GetPlayerComponent<PoolPlayerInput>();
                 if (IsOwner && poolPlayerInput != null)
                 {
                     poolPlayerInput.enabled = active;
+                    poolPlayerInput.SetInputTarget(gameObject);
                 }
 
                 SetCueActiveClientRpc(active);
@@ -113,10 +119,11 @@ public class PoolCue : NetworkBehaviour
             {
                 gameObject.SetActive(active);
 
-                PoolPlayerInput poolPlayerInput = GetComponent<PoolPlayerInput>();
+                PoolPlayerInput poolPlayerInput = PlayerMgr.Instance.GetLocalPlayer().GetPlayerComponent<PoolPlayerInput>();
                 if (IsOwner && poolPlayerInput != null)
                 {
                     poolPlayerInput.enabled = active;
+                    poolPlayerInput.SetInputTarget(gameObject);
                 }
             }
         }
@@ -385,10 +392,9 @@ public class PoolCue : NetworkBehaviour
             }
 
             //cuePositioner.OnOrbit(0.0f, dx);
-            Vector3 mousePosScreen = Input.mousePosition;
-            mousePosScreen.z = (hitInfo.distance + Camera.main.nearClipPlane) * 1.15f; // 1.15 fudge factor
+            Vector3 mouseWorldPos = Vector3.zero;
+            CameraMgr.GetMouseWorldPosition(ref mouseWorldPos, true);
 
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mousePosScreen);
             mouseWorldPos.y = transform.position.y; // To keep our current elevation
 
             DebugCursorObject.SetActive(true);

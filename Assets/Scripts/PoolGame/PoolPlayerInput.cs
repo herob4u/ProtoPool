@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
-public class PoolPlayerInput : MonoBehaviour
+// @TODO: consider promoting this to a PlayerComponent!
+public class PoolPlayerInput : PlayerComponent
 {
     const string AXIS_ACTION = "Action";
     const string AXIS_ACTION_ALT = "ActionAlt";
     const string AXIS_TURN_CUE_X = "TurnCue X";
     const string AXIS_TURN_CUE_Y = "TurnCue Y";
+    const string AXIS_MOVE_RACK_X = "MoveRack X";
+    const string AXIS_MOVE_RACK_Y = "MoveRack Y";
 
     // Duration in seconds to hold the action input for it to register for a swing, otherwise users miscliking can accidently enter and release a swing immediately.
     public float SwingActionDeadTime = 0.1f;
@@ -18,6 +21,54 @@ public class PoolPlayerInput : MonoBehaviour
     public Vector2 SwingAxisMultiplier = new Vector2(1.0f, 1.0f);
     public Vector2 TurnAxisMultiplier = new Vector2(1.0f, 1.0f);
     private float swingActionTimer = 0.0f;
+
+    protected struct ControlTargetInfo
+    {
+        const int POOL_CUE_FLAG = (1 << 1);
+        const int POOL_RACK_FLAG = (1 << 2);
+
+        public GameObject ControlledObj { get; private set; }
+        int TypeFlag; // 0 if controlling nothing
+
+        public void SetControlTarget(GameObject obj)
+        {
+            if(ControlledObj != obj)
+            {
+                ControlledObj = obj;
+                if(!ControlledObj) { return; }
+
+                TypeFlag = 0;
+                if(ControlledObj.GetComponent<PoolCue>())
+                {
+                    TypeFlag |= POOL_CUE_FLAG;
+                }
+                else if(ControlledObj.GetComponent<PoolRack>())
+                {
+                    TypeFlag |= POOL_RACK_FLAG;
+                }
+            }
+        }
+
+        public bool IsPoolRack() { return ControlledObj != null && (TypeFlag &= POOL_RACK_FLAG) != 0; }
+        public bool IsPoolCue() { return ControlledObj != null && (TypeFlag &= POOL_CUE_FLAG) != 0; }
+    }
+    protected ControlTargetInfo ControlTarget;
+
+
+    // Sets the object this component tries to control
+    public void SetInputTarget(GameObject target)
+    {
+        ControlTarget.SetControlTarget(target);
+
+        if (target)
+        {
+            Logger.LogScreen($"Input Target set to {target.name}");
+        }
+        else
+        {
+            Logger.LogScreen($"Input Target cleared");
+        }
+    }
 
     // Start is called before the first frame update
     void Start()
@@ -34,8 +85,6 @@ public class PoolPlayerInput : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        PoolCue cue = GetComponent<PoolCue>();
-
         // Restarts game
         if(Input.GetKeyDown(KeyCode.R))
         {
@@ -47,24 +96,12 @@ public class PoolPlayerInput : MonoBehaviour
             }
         }
 
-        // Cycle between balls to hit
-        if(Input.GetKeyDown(KeyCode.E))
-        {
-            if(PoolGameDirector.Instance && PoolGameDirector.Instance.GetPoolTable())
-            {
-                PoolBall cueBall = PoolGameDirector.Instance.GetPoolTable().GetCueBall();
-                cue.AcquireBall(cueBall);
-                return;
-            }
-
-        }
-
         if(Input.GetKeyDown(KeyCode.C))
         {
             if(PlayerMgr.Instance)
             {
                 Player localPlayer = PlayerMgr.Instance.GetLocalPlayer();
-                PoolPlayerCameraMgr cameraMgr = localPlayer.GetPlayerGameInfo<PoolPlayerCameraMgr>();
+                PoolPlayerCameraMgr cameraMgr = localPlayer.GetPlayerComponent<PoolPlayerCameraMgr>();
 
                 if(cameraMgr)
                 {
@@ -74,15 +111,53 @@ public class PoolPlayerInput : MonoBehaviour
             }
         }
 
-        if(cue.ServingPoolBall != null)
+        if(ControlTarget.IsPoolRack())
         {
-            HandleCueInput();
+            HandleRackInput(ControlTarget.ControlledObj.GetComponent<PoolRack>());
+            return;
+        }
+
+        if(ControlTarget.IsPoolCue())
+        {
+            HandleCueInput(ControlTarget.ControlledObj.GetComponent<PoolCue>());
+            return;
         }
     }
 
-    void HandleCueInput()
+    void HandleRackInput(PoolRack poolRack)
     {
-        PoolCue cue = GetComponent<PoolCue>();
+        // First handle actions in case the placement finished
+        if(Input.GetButtonDown(AXIS_ACTION))
+        {
+            poolRack.FinishPlacement();
+            return;
+        }
+
+        float moveX, moveY;
+        moveX = Input.GetAxis(AXIS_MOVE_RACK_X) * Time.deltaTime;
+        moveY = Input.GetAxis(AXIS_MOVE_RACK_Y) * Time.deltaTime;
+
+        if(Mathf.Approximately(moveX, 0.0f) && Mathf.Approximately(moveY, 0.0f))
+        {
+            // Don't waste bandwidth with empty inputs!
+            return;
+        }
+
+        PoolPlayerCameraMgr cameraMgr = OwningPlayer.GetPlayerComponent<PoolPlayerCameraMgr>();
+
+        Vector3 mouseWorldPos = Vector3.zero;
+        if(cameraMgr.GetMouseWorldPosition(ref mouseWorldPos))
+        {
+            poolRack.MoveRack(mouseWorldPos);
+        }
+    }
+
+    void HandleCueInput(PoolCue cue)
+    {
+        if (cue.ServingPoolBall == null)
+        {
+            return;
+        }
 
         float turnX, turnY;
         turnX = Input.GetAxis(AXIS_TURN_CUE_X) * Time.deltaTime;

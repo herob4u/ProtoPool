@@ -15,3 +15,4 @@ MonoBehaviour:
   CueMaterial: {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
   PoolTablePrefab: {fileID: 2083006741072642335, guid: 16944279cc1436f45aed89504ab66ac9, type: 3}
   PoolCuePrefab: {fileID: 2219269447144571752, guid: 3ac1e3a799bec9f40a7c49752dae36b0, type: 3}
+  PoolRackPrefab: {fileID: 7823671377054599867, guid: ae302bec537e7ea4d939a989961739bf, type: 3}

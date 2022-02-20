@@ -18,7 +18,7 @@ public struct CameraViewParams
 }
 
 /* This component should exist only for the local player */
-public class PoolPlayerCameraMgr : PlayerGameInfo
+public class PoolPlayerCameraMgr : PlayerComponent
 {
     [SerializeField] private GameObject TopDownCameraSpot;
     [SerializeField] private GameObject CueAimCameraSpot;
@@ -133,21 +133,30 @@ public class PoolPlayerCameraMgr : PlayerGameInfo
             CueAimCameraSpot.transform.position = (TargetCueObject.transform.position + (localUpDir * 0.1f) - (localForwardDir * 1.0f));
             CueAimCameraSpot.transform.rotation = TargetCueObject.transform.rotation;
         }
+    }
 
-        /*
-        // Position ourselves in the forward direction of our cue
-        PoolGamePlayer poolPlayer = PoolGameDirector.Instance.GetLocalPoolPlayer();
-        if(poolPlayer != null)
+    // mustHitWorld: If true, mouse position cannot be inferred without raycasting and hitting an object in the world - i.e, don't get mouse position in the void.
+    public bool GetMouseWorldPosition(ref Vector3 mouseWorldPos, bool mustHitSurface = false)
+    {
+        float offsetToSurface = 0.0f;
+        if(mustHitSurface)
         {
-            if(poolPlayer.CueObject)
+            RaycastHit hitInfo;
+            if (!Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out hitInfo))
             {
-                Vector3 localForwardDir = poolPlayer.CueObject.transform.forward;
-                Vector3 localUpDir = poolPlayer.CueObject.transform.up;
-
-                CueAimCameraSpot.transform.position = (poolPlayer.CueObject.transform.position + (localUpDir * 0.1f) - (localForwardDir * 1.0f));
-                CueAimCameraSpot.transform.rotation = poolPlayer.CueObject.transform.rotation;
+                return false;
             }
+
+            offsetToSurface = hitInfo.distance;
         }
-        */
+
+        float fudgeFactor = IsTopDownCameraEnabled() ? 1.15f : 1.0f;
+
+        Vector3 mousePosScreen = Input.mousePosition;
+        mousePosScreen.z = (offsetToSurface + Camera.main.nearClipPlane) * fudgeFactor; // 1.15 fudge factor, 
+
+        mouseWorldPos = Camera.main.ScreenToWorldPoint(mousePosScreen);
+
+        return true;
     }
 }

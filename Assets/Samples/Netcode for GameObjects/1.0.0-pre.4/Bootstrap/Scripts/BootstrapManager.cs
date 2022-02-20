@@ -50,6 +50,11 @@ namespace Unity.Netcode.Samples
                         }
                     }
                 }
+
+                if (GUILayout.Button("Shutdown"))
+                {
+                    networkManager.Shutdown();
+                }
             }
 
             GUILayout.EndArea();

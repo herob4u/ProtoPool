@@ -4,7 +4,23 @@ using UnityEngine;
 
 public class PoolTurnController : SimpleTurnController
 {
+    private uint TurnNumber = 0;
     private int PlayerTurnCounter = 0;
+
+    /* Resets the game such that it starts from the first turn again */
+    public void ResetTurns()
+    {
+        if(IsServer)
+        {
+            TurnNumber = 0;
+            PlayerTurnCounter = 0;
+
+            // Force the change
+            SetTurnState(ETurnState.None);
+            ServerUpdate();
+        }
+
+    }
 
     protected bool IsGameStarted()
     {
@@ -45,6 +61,8 @@ public class PoolTurnController : SimpleTurnController
         {
             return;
         }
+
+        ++TurnNumber;
 
         if(--PlayerTurnCounter <= 0)
         {

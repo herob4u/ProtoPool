@@ -11,12 +11,29 @@ public class PoolTable : NetworkBehaviour
     public delegate void OnPoolBallLaunchedDelegate(PoolBall ball);
     public delegate void OnPoolBallScoredDelegate(PoolBall ball, PoolGamePlayer byPlayer);
 
-    public BoxCollider PlayBox;
-    public GameObject PoolBallPrefab;
+    [SerializeField] private BoxCollider PlayBox;
+    [SerializeField] private GameObject PoolBallPrefab;
+    [SerializeField, Tooltip("Optional object that can be placed to explicitly indicate where the rack should be placed")]          private GameObject RackPivotHelper;
+    [SerializeField, Tooltip("Optional object that can be placed to explicitly indicate where the cue ball should be placed")]      private GameObject CueBallPivotHelper;
+    [SerializeField, Tooltip("Optional object that can be placed to explicitly indicate where the origin of the table surface is")] private GameObject SurfaceOriginHelper;
 
-    public float PoolBallSpacing = 0.05f;
-    public float TableWidth = 10.0f;
-    public float TableHeight = 20.0f;
+    [SerializeField] private float PoolBallSpacing = 0.05f;
+    [SerializeField] private float Width = 10.0f;
+    [SerializeField] private float Length = 20.0f;
+    [SerializeField] private float Height = 5.0f;
+
+    // By default, we assume that the mesh of the table is such that the length is oriented towards the forward direction of the object.
+    // Reverse this if needed so that code that operates on the table surface can adapt.
+    [SerializeField] private bool bLengthIsForward = true;
+
+    public float SurfaceWidth { get => Width; }
+    public float SurfaceLength { get => Length; }
+    public float SurfaceHeight { get => Height; }
+
+    public Vector3 LengthDirection { get { return bLengthIsForward ? transform.forward : transform.right; } }
+    public Vector3 WidthDirection { get { return bLengthIsForward ? transform.right : transform.forward; } }
+
+    public bool AreBallsMoving { get => bAreBallsMoving; }
 
     public OnPoolBallsStoppedDelegate OnPoolBallsStopped { get; set; }
     public OnPoolBallScoredDelegate OnPoolBallScored { get; set; }
@@ -143,17 +160,51 @@ public class PoolTable : NetworkBehaviour
         }
     }
 
+    public Vector3 GetIdealRackPosition()
+    {
+        if(RackPivotHelper)
+        {
+            return RackPivotHelper.transform.position;
+        }
+
+        float absoluteOffset = 0.25f * Length; // Rack should be place at the 75% mark, or 25% off the origin in the length direction.
+        return GetSurfaceOrigin() + (LengthDirection * absoluteOffset);
+    }
+
+    // The center point of the rectangle that makes up the playable surface. This can either be inferred from
+    // the bounding box, or by a user created collider.
+    public Vector3 GetSurfaceOrigin()
+    {
+        if(SurfaceOriginHelper)
+        {
+            return SurfaceOriginHelper.transform.position;
+        }
+
+        Bounds bounds = GetComponent<MeshFilter>().mesh.bounds;
+        Vector3 origin = bounds.center;
+        origin.y = bounds.max.y + 0.1f;
+
+        return origin; 
+    }
+
     void InitPoolBalls()
     {
         //Bounds bounds = ScoreBoxCollider.bounds;
         Bounds bounds = GetComponent<MeshFilter>().mesh.bounds;
-        Vector3 startPos = bounds.center;
-        startPos.y = bounds.max.y + 0.1f;
+        Vector3 startPos = GetSurfaceOrigin();
 
         // Spawn cue ball first
         GameObject cueBallObj = MakeBall(EPoolBallType.Cue);
-        cueBallObj.transform.position = startPos - Vector3.forward * (bounds.extents.magnitude * 0.5f);
         PoolBalls[0] = cueBallObj.GetComponent<PoolBall>();
+
+        if(CueBallPivotHelper)
+        {
+            cueBallObj.transform.position = CueBallPivotHelper.transform.position;
+        }
+        else
+        {
+            cueBallObj.transform.position = startPos - Vector3.forward * (bounds.extents.magnitude * 0.5f);
+        }
 
         // Start spawning remaining balls.
         float spacing = PoolBallSpacing;
@@ -203,10 +254,12 @@ public class PoolTable : NetworkBehaviour
                     if(frozen)
                     {
                         rigidBody.velocity = Vector3.zero;
+                        rigidBody.freezeRotation = true;
                         rigidBody.Sleep();
                     }
                     else
                     {
+                        rigidBody.freezeRotation = false;
                         rigidBody.WakeUp();
                     }
                 }

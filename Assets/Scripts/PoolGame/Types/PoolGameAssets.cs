@@ -8,6 +8,7 @@ public class PoolGameAssets : ScriptableObject
     public Material CueMaterial;
     public GameObject PoolTablePrefab;
     public GameObject PoolCuePrefab;
+    public GameObject PoolRackPrefab;
 
     // Start is called before the first frame update
     void Start()

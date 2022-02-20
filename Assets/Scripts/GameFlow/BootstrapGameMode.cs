@@ -98,6 +98,7 @@ namespace GameFlow
         }
     };
 
+    [RequireComponent(typeof(GameSession))]
     public class BootstrapGameMode : MonoBehaviour
     {
         public List<GameModeConfig> GameModeConfigs;
@@ -132,22 +133,6 @@ namespace GameFlow
         void Start()
         {
             DontDestroyOnLoad(this.gameObject);
-
-            NetworkManager.Singleton.ConnectionApprovalCallback += OnConnectionRequest;
-        }
-
-        private void OnConnectionRequest(byte[] connectionData, ulong clientId, NetworkManager.ConnectionApprovedDelegate approvedDelegate)
-        {
-            NetworkManager networkMgr = NetworkManager.Singleton;
-
-            if(networkMgr.IsHost && clientId == networkMgr.LocalClientId)
-            {
-                approvedDelegate(true, null, true, Vector3.zero, Quaternion.identity);
-            }
-            else
-            {
-                approvedDelegate(true, null, true, null, null);
-            }
         }
 
         // Update is called once per frame
@@ -234,6 +219,8 @@ namespace GameFlow
                 }
 
                 Debug.LogFormat("IsHost: {0}, IsServer: {1}", NetworkManager.Singleton.IsHost, NetworkManager.Singleton.IsServer);
+
+                InitGameSession(createParams);
                 InitGameMode(createParams.GameMode);
             };
 
@@ -319,6 +306,22 @@ namespace GameFlow
             }
             
             NetworkManager.Singleton.Shutdown();
+        }
+
+        void InitGameSession(SessionCreateParams createParams)
+        {
+            GameSession.Properties sessionProperties = new GameSession.Properties();
+            sessionProperties.PlayerCapacity = createParams.MaxPlayers;
+            sessionProperties.SpectatorCapacity = 0;
+            sessionProperties.JoinRestriction = createParams.SessionPrivacy == ESessionPrivacy.Public ? ESessionRestriction.Public : ESessionRestriction.Private;
+
+            GameSession session = GetComponent<GameSession>();
+            if(!session)
+            {
+                session = gameObject.AddComponent<GameSession>();
+            }
+
+            session.InitSession(sessionProperties);
         }
 
         void InitGameMode(string gamemode)

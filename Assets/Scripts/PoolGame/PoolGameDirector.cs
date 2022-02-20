@@ -24,28 +24,11 @@ public class PoolGamePlayer : GamePlayer
     }
 }
 
-/* An interface for listeners to interject and respond to the flow of the game. Listeners can dictate if a state change is allowed. */
-public abstract class IPoolGameHandler
-{
-    public abstract void OnTurnPreStart(PoolGamePlayer turnPlayer);
-    public abstract void OnTurnStarted(PoolGamePlayer turnPlayer);
-    public abstract void OnTurnPreEnd(PoolGamePlayer turnPlayer);
-    public abstract void OnTurnEnded(PoolGamePlayer turnPlayer);
-    public abstract void OnTurnAdvanced(PoolGamePlayer turnPlayer);
-
-    public virtual bool CanStartTurn() { return true; }
-    public virtual bool CanEndTurn() { return true; }
-    public virtual bool CanAdvanceTurn() { return true; }
-}
 
 /* Governs score keeping, and turn switching between players 
-/* The PoolGameDirector exists only on the server, and is the arbitrer of player turns.
 */
-public class PoolGameDirector : NetworkBehaviour
+public class PoolGameDirector : NetworkBehaviour, ISessionHandler
 {
-    public delegate void OnPlayerTurnStarted(Player player, int playerIdx);
-    public delegate void OnPlayerTurnEnded(Player player, int playerIdx);
-
     public bool OverrideNumPlayers = false;
     [Range(1, 4), EditCondition("OverrideNumPlayers")]
     public int NumPlayers = 1;
@@ -62,13 +45,16 @@ public class PoolGameDirector : NetworkBehaviour
     // Lives on server only
     List<PoolGamePlayer> GamePlayers = new List<PoolGamePlayer>();
 
-    public bool HasGameStarted { get { return bHasStarted; } }
+    public bool HasGameStarted { get => bHasStarted; }
+    public bool IsPositioningRack { get => bIsPositioningRack; }
 
     private bool bHasStarted = false;
+    private bool bIsPositioningRack = false;
     private float FastForwardTimer;
 
     public static PoolGameDirector Instance { get; private set; }
     private GameObject PoolTableObj;
+    private GameObject PoolRackObj;
     
     public PoolGameRules GetGameRules()
     {
@@ -143,8 +129,8 @@ public class PoolGameDirector : NetworkBehaviour
     {
         EndGame();
 
-        PlayerMgr.Instance.OnPlayerJoined -= OnPlayerJoined;
-        PlayerMgr.Instance.OnPlayerLeft -= OnPlayerLeft;
+        //PlayerMgr.Instance.OnPlayerJoined -= OnPlayerJoined;
+        //PlayerMgr.Instance.OnPlayerLeft -= OnPlayerLeft;
 
         if(IsServer)
         {
@@ -156,14 +142,20 @@ public class PoolGameDirector : NetworkBehaviour
             }
         }
 
+        GameSession session = FindObjectOfType<GameSession>();
+        if (session)
+        {
+            session.SetSessionHandler(null);
+        }
+
         Instance = null;
     }
 
     // Start is called before the first frame update
     void Start()
     {
-        PlayerMgr.Instance.OnPlayerJoined += OnPlayerJoined;
-        PlayerMgr.Instance.OnPlayerLeft += OnPlayerLeft;
+        //PlayerMgr.Instance.OnPlayerJoined += OnPlayerJoined;
+        //PlayerMgr.Instance.OnPlayerLeft += OnPlayerLeft;
 
         // Initialize components...
         TurnController = GetComponent<PoolTurnController>();
@@ -182,6 +174,12 @@ public class PoolGameDirector : NetworkBehaviour
                 TurnController.OnPlayerContinuedTurn += OnPlayerContinuedTurn;
             }
         }
+
+        GameSession session = FindObjectOfType<GameSession>();
+        if(session)
+        {
+            session.SetSessionHandler(this);
+        }
     }
 
     public override void OnNetworkSpawn()
@@ -190,23 +188,6 @@ public class PoolGameDirector : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    private void NotifyReadyServerRpc(ulong playerNetId)
-    {
-        foreach(PoolGamePlayer player in GamePlayers)
-        {
-            if(player.Player.NetId == playerNetId)
-            {
-                player.SetAsReady();
-
-                if(TurnController)
-                {
-                    TurnController.AddPlayer(player);
-                }
-            }
-        }
     }
 
     // Update is called once per frame
@@ -252,13 +233,19 @@ public class PoolGameDirector : NetworkBehaviour
         }
     }
 
-    void OnPlayerJoined(Player player)
+    public void OnPlayerJoined(Player player)
     {
         Debug.Log("PoolGameDirector - player joined");
 
         if(IsServer)
         {
-            GamePlayers.Add(new PoolGamePlayer(player));
+            PoolGamePlayer poolPlayer = new PoolGamePlayer(player);
+            GamePlayers.Add(poolPlayer);
+
+            if (TurnController)
+            {
+                TurnController.AddPlayer(poolPlayer);
+            }
         }
 
         Debug.LogFormat("Player is {0}", player.IsLocal() ? "local" : "remote");
@@ -269,21 +256,13 @@ public class PoolGameDirector : NetworkBehaviour
             if (player.IsLocal())
             {
                 // Give the player their own camera manager
-                player.AddPlayerGameInfo<PoolPlayerCameraMgr>();
-
-                if(IsSpawned)
-                {
-                    NotifyReadyServerRpc(player.NetId);
-                }
-                else
-                {
-                    Debug.LogWarning("Could not notify ready. NetObject not spawned yet");
-                }
+                player.AddPlayerComponent<PoolPlayerCameraMgr>();
+                player.AddPlayerComponent<PoolPlayerInput>();
             }
         }
     }
     
-    void OnPlayerLeft(Player player)
+    public void OnPlayerLeft(Player player)
     {
         Debug.Log("PoolGameDirector - player left");
 
@@ -308,9 +287,16 @@ public class PoolGameDirector : NetworkBehaviour
         {
             if (player.IsLocal())
             {
-                player.RemovePlayerGameInfo<PoolPlayerCameraMgr>();
+                player.RemovePlayerComponent<PoolPlayerInput>();
+                player.RemovePlayerComponent<PoolPlayerCameraMgr>();
             }
         }
+    }
+
+    public bool OnJoinRequest(out Result result)
+    {
+        result = Result.GetSuccess();
+        return true;
     }
 
     bool CanStart()
@@ -318,14 +304,6 @@ public class PoolGameDirector : NetworkBehaviour
         if(!IsServer)
         {
             return false;
-        }
-
-        foreach(PoolGamePlayer gamePlayer in GamePlayers)
-        {
-            if(!gamePlayer.IsReady)
-            {
-                return false;
-            }
         }
 
         if(OverrideNumPlayers)
@@ -343,15 +321,73 @@ public class PoolGameDirector : NetworkBehaviour
             return;
         }
 
+        if(TurnController)
+        {
+            TurnController.ResetTurns();
+            if(TurnController.GetTurnPlayer() == null)
+            {
+                // Default to first player who joined
+                TurnController.SetTurnPlayer(GamePlayers[0]);
+            }
+        }
+
         bHasStarted = true;
+        bIsPositioningRack = false;
 
         SpawnPoolGame();
 
-        // Start the first turn of the game
-        if(TurnController)
+        // Start positoning the rack
+        if(!EnablePoolRack())
         {
-            TurnController.SetTurnState(SimpleTurnController.ETurnState.Advancing);
+            // Start the first turn of the game if positioning is not viable.
+            if (TurnController)
+            {
+                TurnController.SetTurnState(SimpleTurnController.ETurnState.Advancing);
+            }
         }
+    }
+
+    bool EnablePoolRack()
+    {
+        if(!IsServer)
+        {
+            return false;
+        }
+
+        if(!PoolRackObj)
+        {
+            bIsPositioningRack = false;
+            return false;
+        }
+
+        if (TurnController)
+        {
+            PoolRackObj.GetComponent<PoolRack>().SetControllingPlayer(TurnController.GetTurnPlayer() as PoolGamePlayer);
+        }
+
+        PoolRackObj.SetActive(true);
+        PoolRackObj.GetComponent<PoolRack>().SetupRack(PoolTableObj.GetComponent<PoolTable>());
+
+        bIsPositioningRack = true;
+
+        return true;
+    }
+
+    void DisablePoolRack()
+    {
+        if(!IsServer)
+        {
+            return;
+        }
+
+        // Update the state of the game object, disable it and replicate to clients.
+        if(PoolRackObj)
+        {
+            PoolRackObj.SetActive(false);
+            PoolTableObj.GetComponent<PoolTable>().SetBallsFrozen(true);
+        }
+
+        bIsPositioningRack = false;
     }
 
     public void RestartGame()
@@ -395,10 +431,19 @@ public class PoolGameDirector : NetworkBehaviour
             return;
         }
 
+        if(DefaultSettings.PoolRackPrefab)
+        {
+            PoolRackObj = Instantiate(DefaultSettings.PoolRackPrefab);
+            PoolRackObj.GetComponent<PoolRack>().OnRackPlacementStarted += OnRackPlacementStarted;
+            PoolRackObj.GetComponent<PoolRack>().OnRackPlacementFinished += OnRackPlacementFinished;
+            PoolRackObj.GetComponent<NetworkObject>().Spawn();
+
+        }
+
         // Spawn the cues for each player, making sure that the cue is owned by the respective player.
         // This way, the lifetime of the object is tied to the respective player. The cue is the player's
         // representation in the game, and therefore its events are used to communicate to the director on the server.
-        for(int i = 0; i < GamePlayers.Count; ++i)
+        for (int i = 0; i < GamePlayers.Count; ++i)
         {
             Player player = GamePlayers[i].Player;
 
@@ -427,9 +472,22 @@ public class PoolGameDirector : NetworkBehaviour
             return;
         }
 
-        PoolTableObj.GetComponent<NetworkObject>().Despawn(true);
+        // Pool Table
+        {
+            PoolTableObj.GetComponent<PoolTable>().OnPoolBallsStopped -= OnPoolBallsStoppedHandler;
+            PoolTableObj.GetComponent<PoolTable>().OnPoolBallScored -= OnPoolBallScored;
+            PoolTableObj.GetComponent<PoolTable>().OnPoolBallLaunched -= OnPoolBallLaunched;
+            PoolTableObj.GetComponent<NetworkObject>().Despawn(true);
+        }
 
-        foreach(PoolGamePlayer player in GamePlayers)
+        // Pool Rack
+        {
+            PoolRackObj.GetComponent<PoolRack>().OnRackPlacementStarted -= OnRackPlacementStarted;
+            PoolRackObj.GetComponent<PoolRack>().OnRackPlacementFinished -= OnRackPlacementFinished;
+            PoolRackObj.GetComponent<NetworkObject>().Despawn(true);
+        }
+
+        foreach (PoolGamePlayer player in GamePlayers)
         {
             Debug.LogWarningFormat("Destroying cue {0}", player.CueObject.name);
             player.CueObject.GetComponent<NetworkObject>().Despawn();
@@ -536,6 +594,9 @@ public class PoolGameDirector : NetworkBehaviour
 
             FastForwardTimer = FastForwardTime;
 
+            // Unfreeze to allow the simulation to play out
+            PoolTableObj.GetComponent<PoolTable>().SetBallsFrozen(false);
+
             OnPoolBallLaunchedClientRpc(poolBall.GetComponent<NetworkObject>().NetworkObjectId);
         }
     }
@@ -553,7 +614,7 @@ public class PoolGameDirector : NetworkBehaviour
         Player localPlayer = PlayerMgr.Instance.GetLocalPlayer();
         if(localPlayer)
         {
-            PoolPlayerCameraMgr cameraMgr = localPlayer.GetPlayerGameInfo<PoolPlayerCameraMgr>();
+            PoolPlayerCameraMgr cameraMgr = localPlayer.GetPlayerComponent<PoolPlayerCameraMgr>();
             if(cameraMgr)
             {
                 cameraMgr.EnableTopDownCamera();
@@ -569,7 +630,10 @@ public class PoolGameDirector : NetworkBehaviour
         FastForwardTimer = 0.0f;
         GameStatics.SetGameSpeed(1.0f);
 
-        if(TurnController)
+        // Freeze everything so we don't accidentally alter them
+        PoolTableObj.GetComponent<PoolTable>().SetBallsFrozen(true);
+
+        if (TurnController)
         {
             TurnController.SetTurnState(SimpleTurnController.ETurnState.Ending);
         }
@@ -662,5 +726,53 @@ public class PoolGameDirector : NetworkBehaviour
 
             Debug.LogError("OnPlayerContinuedTurn failed - could not find cue ball.");
         }
+    }
+
+    private void OnRackPlacementStarted()
+    {
+        if(IsServer)
+        {
+            ulong controllingPlayer = PoolRackObj.GetComponent<PoolRack>().GetControllingPlayerNetId();
+
+            // Notify clients
+            OnRackPlacementStartedClientRpc(controllingPlayer);
+        }
+    }
+
+    [ClientRpc]
+    private void OnRackPlacementStartedClientRpc(ulong controllingPlayer)
+    {
+        Player localPlayer = PlayerMgr.Instance.GetLocalPlayer();
+
+        // I am the one given control, enable my inputs for the rack
+        if(localPlayer.NetId == controllingPlayer)
+        {
+            // @ WIP: remote player PoolRackObj is still null!!! Need to address it.
+            localPlayer.GetPlayerComponent<PoolPlayerInput>().SetInputTarget(PoolRackObj);
+        }
+    }
+
+    private void OnRackPlacementFinished()
+    {
+        if(IsServer)
+        {
+            DisablePoolRack();
+
+            if (TurnController)
+            {
+                TurnController.SetTurnState(SimpleTurnController.ETurnState.Advancing); // Actually starts the game
+            }
+
+            // Notify players
+            OnRackPlacementFinishedClientRpc();
+        }
+    }
+
+    [ClientRpc]
+    private void OnRackPlacementFinishedClientRpc()
+    {
+        Player localPlayer = PlayerMgr.Instance.GetLocalPlayer();
+        // @ WIP: remote player PoolRackObj is still null!!! Need to address it.
+        localPlayer.GetPlayerComponent<PoolPlayerInput>().SetInputTarget(null);
     }
 }

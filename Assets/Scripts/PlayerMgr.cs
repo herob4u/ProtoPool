@@ -8,11 +8,14 @@ public class PlayerMgr : MonoBehaviour
     public delegate void OnPlayerJoinedDelegate(Player player);
     public delegate void OnPlayerLeftDelegate(Player player);
 
+    public static ulong INVALID_PLAYER_NET_ID = ulong.MaxValue;
+
     public OnPlayerJoinedDelegate OnPlayerJoined;
     public OnPlayerLeftDelegate OnPlayerLeft;
 
     public List<Player> Players = new List<Player>();
-
+    public bool DebugGUIEnabled = true;
+    
     public static PlayerMgr Instance { get; private set; }
 
     public virtual void Awake()
@@ -34,22 +37,19 @@ public class PlayerMgr : MonoBehaviour
         return Players;
     }
 
-    private void OnClientDisconnected(ulong netId)
+    public Player GetPlayer(ulong playerNetId)
     {
-        Debug.LogFormat("Client disconnected: NetID={0}", netId);
-        Player player = Players.Find(p => p.NetId == netId);
-    }
+        foreach(Player player in Players)
+        {
+            if(player.NetId == playerNetId)
+            {
+                return player;
+            }
+        }
 
-    private void OnClientConnected(ulong netId)
-    {
-        Debug.LogFormat("Client connected: NetID={0}", netId);
+        return null;
     }
-
-    private void OnServerStarted()
-    {
-        Debug.LogFormat("Server started");
-    }
-
+    
     public void NotifyPlayerJoined(Player player)
     {
         if(Players.Contains(player))
@@ -102,9 +102,6 @@ public class PlayerMgr : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        NetworkManager.Singleton.OnServerStarted += OnServerStarted;
-        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
     // Update is called once per frame
@@ -115,6 +112,11 @@ public class PlayerMgr : MonoBehaviour
 
     private void OnGUI()
     {
+        if(!DebugGUIEnabled)
+        {
+            return;
+        }
+
         int numPlayers = Players.Count;
         if(numPlayers < 1)
         {

@@ -114,7 +114,7 @@ public class PoolBallAudio : MonoBehaviour
         {
             SetLowPass(lowPassCutoff);
 
-            Debug.Log("Playing ball impact");
+            //Debug.Log("Playing ball impact");
             AudioSource.clip = sound;
             AudioSource.volume = volume;
             AudioSource.pitch = Mathf.Abs(Random.Range(1 - PitchVariation, 1 + PitchVariation));

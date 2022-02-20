@@ -52,6 +52,7 @@ public abstract class TurnController : NetworkBehaviour
     // Should return whoever is the current player in the game
     public abstract GamePlayer GetTurnPlayer();
     public abstract GamePlayer GetNextTurnPlayer();
+    public abstract void SetTurnPlayer(GamePlayer turnPlayer);
 
     void Update()
     {
@@ -211,6 +212,23 @@ public class SimpleTurnController : TurnController
                 }
             }
         }
+    }
+    public override void SetTurnPlayer(GamePlayer turnPlayer)
+    {
+        if (TurnState.Value != ETurnState.None)
+        {
+            Debug.LogWarning("Cannot set turn player, turn is underway");
+            return;
+        }
+
+        int playerIdx = GamePlayers.IndexOf(turnPlayer);
+        if(playerIdx < 0)
+        {
+            Debug.LogWarning("Cannot set turn player, player does not exist");
+            return;
+        }
+
+        CurrentPlayerIdx = playerIdx;
     }
 
     public override GamePlayer GetTurnPlayer()
