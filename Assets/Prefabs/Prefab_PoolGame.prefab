@@ -44,7 +44,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a48a1a65e5d21b4c9a46f741f374dd6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  OverrideNumPlayers: 1
+  OverrideNumPlayers: 0
   NumPlayers: 1
   FastForwardTime: 5
   FastForwardSpeed: 2

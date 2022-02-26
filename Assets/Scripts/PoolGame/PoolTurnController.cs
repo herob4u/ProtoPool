@@ -52,6 +52,7 @@ public class PoolTurnController : SimpleTurnController
         // This is a counter that gets decremented every time a turn is advanced. Once it reaches 0, the player will relinquish the turn.
         PlayerTurnCounter = PoolGameDirector.Instance.GetGameRules().TurnsPerPlayer;
 
+        Debug.Log("DoStartTurn");
         base.DoStartTurn();
     }
 
@@ -64,7 +65,9 @@ public class PoolTurnController : SimpleTurnController
 
         ++TurnNumber;
 
-        if(--PlayerTurnCounter <= 0)
+        Debug.Log("DoAdvanceTurn");
+
+        if (--PlayerTurnCounter <= 0)
         {
             base.DoAdvanceTurn();
         }
@@ -83,6 +86,7 @@ public class PoolTurnController : SimpleTurnController
             return;
         }
 
+        Debug.Log("DoEndTurn");
         base.DoEndTurn();
     }
 }

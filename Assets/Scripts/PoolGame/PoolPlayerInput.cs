@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
-// @TODO: consider promoting this to a PlayerComponent!
 public class PoolPlayerInput : PlayerComponent
 {
     const string AXIS_ACTION = "Action";
@@ -22,6 +21,12 @@ public class PoolPlayerInput : PlayerComponent
     public Vector2 TurnAxisMultiplier = new Vector2(1.0f, 1.0f);
     private float swingActionTimer = 0.0f;
 
+#if UNITY_EDITOR
+    // Dummy object to display where our cursor world position is.
+    [SerializeField]
+    private GameObject DebugCursorObject = null;
+#endif
+
     protected struct ControlTargetInfo
     {
         const int POOL_CUE_FLAG = (1 << 1);
@@ -34,10 +39,10 @@ public class PoolPlayerInput : PlayerComponent
         {
             if(ControlledObj != obj)
             {
+                TypeFlag = 0;
                 ControlledObj = obj;
                 if(!ControlledObj) { return; }
 
-                TypeFlag = 0;
                 if(ControlledObj.GetComponent<PoolCue>())
                 {
                     TypeFlag |= POOL_CUE_FLAG;
@@ -49,8 +54,8 @@ public class PoolPlayerInput : PlayerComponent
             }
         }
 
-        public bool IsPoolRack() { return ControlledObj != null && (TypeFlag &= POOL_RACK_FLAG) != 0; }
-        public bool IsPoolCue() { return ControlledObj != null && (TypeFlag &= POOL_CUE_FLAG) != 0; }
+        public bool IsPoolRack() { return ControlledObj != null && (TypeFlag & POOL_RACK_FLAG) != 0; }
+        public bool IsPoolCue() { return ControlledObj != null && (TypeFlag & POOL_CUE_FLAG) != 0; }
     }
     protected ControlTargetInfo ControlTarget;
 
@@ -68,6 +73,10 @@ public class PoolPlayerInput : PlayerComponent
         {
             Logger.LogScreen($"Input Target cleared");
         }
+
+#if UNITY_EDITOR
+        DebugCursorObject.SetActive(ControlTarget.IsPoolCue());
+#endif
     }
 
     // Start is called before the first frame update
@@ -80,6 +89,16 @@ public class PoolPlayerInput : PlayerComponent
             //Debug.LogError("Attempting to add PoolPlayerInput on an object not owned by client. Removing self...");
             Destroy(this);
         }
+
+#if UNITY_EDITOR
+        if (DebugCursorObject == null)
+        {
+            DebugCursorObject = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/DebugCube.prefab");
+        }
+
+        DebugCursorObject = Instantiate(DebugCursorObject);
+        DebugCursorObject.SetActive(false);
+#endif
     }
 
     // Update is called once per frame
@@ -175,8 +194,7 @@ public class PoolPlayerInput : PlayerComponent
 
             if (swingActionTimer >= SwingActionDeadTime)
             {
-                cue.OnSwingInput(turnX * SwingAxisMultiplier.x, turnY * SwingAxisMultiplier.y);
-                //cue.OnDebugHitCue(5.0f);
+                cue.AddSwing(GetInputSwingPct(cue, turnX * SwingAxisMultiplier.x, turnY * SwingAxisMultiplier.y));
                 return;
             }
             else
@@ -191,16 +209,74 @@ public class PoolPlayerInput : PlayerComponent
 
             if (cue.GetSwingPct() >= SwingConfirmationThreshold)
             {
+                // Sufficently pulled back cue, confirm a swing
                 cue.CompleteSwing();
                 return;
             }
             else if (cue.GetSwingPct() > 0.0f)
             {
+                // The swing delta was small enough to ignore, cancel.
                 cue.CancelSwing();
                 return;
             }
 
-            cue.OnTurnInput(turnX * TurnAxisMultiplier.x, turnY * TurnAxisMultiplier.y);
+            PoolPlayerCameraMgr cameraMgr = OwningPlayer.GetPlayerComponent<PoolPlayerCameraMgr>();
+
+            if(cameraMgr && cameraMgr.IsTopDownCameraEnabled())
+            {
+                Vector3 desiredDir = GetDesiredCueDirection(cue, cameraMgr, turnX * TurnAxisMultiplier.x, turnY * TurnAxisMultiplier.y);
+                if(desiredDir.magnitude > 0.0f)
+                {
+                    cue.SetCueAimServerRpc(desiredDir);
+                }
+            }
+            else
+            {
+                cue.GetComponent<PoolCuePositioner>().OnOrbit(turnY * TurnAxisMultiplier.y, turnX * TurnAxisMultiplier.x);
+            }
         }
+    }
+
+    Vector3 GetDesiredCueDirection(PoolCue cue, PoolPlayerCameraMgr cameraMgr, float turnX, float turnY)
+    {
+        Vector3 mouseWorldPos = Vector3.zero;
+        if (cameraMgr.GetMouseWorldPosition(ref mouseWorldPos, true))
+        {
+            mouseWorldPos.y = cue.transform.position.y; // Keep it level with the cue to retain the appropriate direction
+
+#if UNITY_EDITOR
+            DebugCursorObject.transform.position = mouseWorldPos;
+#endif
+            Vector3 desiredDir = (cue.ServingPoolBall.transform.position - mouseWorldPos).normalized;
+            Debug.DrawRay(cue.ServingPoolBall.transform.position, desiredDir, Color.red);
+
+            return desiredDir;
+        }
+
+        return Vector3.zero;
+    }
+
+    float GetInputSwingPct(PoolCue cue, float dx, float dy)
+    {
+        PoolPlayerCameraMgr cameraMgr = OwningPlayer.GetPlayerComponent<PoolPlayerCameraMgr>();
+        Vector3 cueDir = cue.gameObject.transform.forward;
+
+        float pullAmount = 0.0f;
+        if (cameraMgr && cameraMgr.IsTopDownCameraEnabled())
+        {
+            Vector3 inputRayLocal = new Vector3(dy, 0.0f, -dx);
+
+            Debug.DrawLine(gameObject.transform.position, gameObject.transform.position + cueDir * 30.0f, Color.yellow);
+            Debug.DrawLine(gameObject.transform.position, gameObject.transform.position + inputRayLocal * 30.0f, Color.red);
+
+            // Increase pull amount if we are pulling away, hence the negation.
+            pullAmount = -Vector3.Dot(cueDir, inputRayLocal);
+        }
+        else
+        {
+            pullAmount -= dy;
+        }
+
+        return pullAmount;
     }
 }

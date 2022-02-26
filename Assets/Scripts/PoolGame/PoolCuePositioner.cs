@@ -9,16 +9,18 @@ public class PoolCuePositioner : MonoBehaviour
     [SerializeField] private float OrbitOffset = 0;
     [SerializeField, Range(-89.9f, 89.9f)] private float OrbitPitch = 0;
     [SerializeField, Range(0.0f, 359.9f)] private float OrbitYaw = 0;
+    [SerializeField, Range(-89.9f, 89.9f)] private float PitchLimitLower = -89.9f;
+    [SerializeField, Range(-89.9f, 89.9f)] private float PitchLimitUpper = 89.9f;
+    [SerializeField, Range(-359.9f, 359.9f)] private float YawLimitLower = -359.9f;
+    [SerializeField, Range(-359.9f, 359.9f)] private float YawLimitUpper = 359.9f;
 
     public bool bIsPitchIgnored = false;
     public bool bIsYawIgnored = false;
-    public bool bInterpolatePull = false;
 
     [Min(0.0f)]
     public float InterpolateDuration = 0.1f;
 
     private float PullPct = 0.0f;
-    private float DesiredPullPct = 0.0f;
 
     [Min(0)]
     public float MaxPullDistance = 0.2f;
@@ -26,7 +28,8 @@ public class PoolCuePositioner : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
+        LimitPitch(ref OrbitPitch);
+        LimitYaw(ref OrbitYaw);
     }
 
     // Update is called once per frame
@@ -35,11 +38,6 @@ public class PoolCuePositioner : MonoBehaviour
         if(!OrbitCenter)
         {
             return;
-        }
-
-        if(PullPct != DesiredPullPct)
-        {
-            PullPct = Mathf.MoveTowards(PullPct, DesiredPullPct, (MaxPullDistance / InterpolateDuration) * Time.deltaTime);
         }
 
         float totalOffset = OrbitOffset + (PullPct * MaxPullDistance);
@@ -68,21 +66,16 @@ public class PoolCuePositioner : MonoBehaviour
 
     public void SetPullPct(float pct)
     {
-        if(bInterpolatePull)
-        {
-            DesiredPullPct = pct;
-        }
-        else
-        {
-            PullPct = Mathf.Clamp(pct, 0.0f, 1.0f);
-            DesiredPullPct = PullPct;
-        }
+        PullPct = Mathf.Clamp(pct, 0.0f, 1.0f);
     }
 
     public void SetOrbitOrientation(float pitch, float yaw)
     {
         OrbitPitch = Mathf.Clamp(pitch, -89.0f, 89.0f);
         OrbitYaw = Mathf.Clamp(yaw, 0.0f, 359.9f);
+
+        LimitPitch(ref OrbitPitch);
+        LimitPitch(ref OrbitYaw);
     }
 
     public void OnOrbit(float pitch, float yaw)
@@ -110,6 +103,9 @@ public class PoolCuePositioner : MonoBehaviour
         OrbitYaw = 90.0f;
         OrbitOffset = 0.0f;
         PullPct = 0.0f;
+
+        LimitPitch(ref OrbitPitch);
+        LimitYaw(ref OrbitYaw);
     }
 
     public Vector3 GetOrbitDirection()
@@ -137,6 +133,50 @@ public class PoolCuePositioner : MonoBehaviour
         OrbitPitch = bKeepPitch ? OrbitPitch : pitchRadian * Mathf.Rad2Deg;
         OrbitYaw = bKeepYaw ? OrbitYaw : yawRadian * Mathf.Rad2Deg;
 
+        LimitPitch(ref OrbitPitch);
+        LimitYaw(ref OrbitYaw);
         //Debug.LogFormat("Pitch={0}, Yaw={1}", OrbitPitch, OrbitYaw);
+    }
+
+    public static Vector3 OrientationToDirection(float pitchDeg, float yawDeg)
+    {
+        Vector3 dir;
+
+        float pitchRadian = Mathf.Deg2Rad * pitchDeg;
+        float yawRadian = Mathf.Deg2Rad * yawDeg;
+
+        dir.x = Mathf.Cos(yawRadian) * Mathf.Cos(pitchRadian);
+        dir.z = Mathf.Sin(yawRadian) * Mathf.Cos(pitchRadian);
+        dir.y = Mathf.Sin(pitchRadian);
+
+        dir.Normalize();
+
+        return dir;
+    }
+
+    public static void DirectionToOrientation(Vector3 dir, out float pitchDeg, out float yawDeg)
+    {
+        dir.Normalize();
+
+        float yawRadian = Mathf.Atan2(dir.z, dir.x);
+        float pitchRadian = Mathf.Asin(dir.y);
+
+        pitchDeg = pitchRadian * Mathf.Rad2Deg;
+        yawDeg = yawRadian * Mathf.Rad2Deg;
+    }
+
+    public bool IsValidOrientation(float pitchDeg, float yawDeg)
+    {
+        return pitchDeg >= PitchLimitLower && pitchDeg <= PitchLimitUpper && yawDeg >= YawLimitLower && yawDeg <= YawLimitUpper;
+    }
+
+    public void LimitPitch(ref float pitchDeg)
+    {
+        pitchDeg = Mathf.Clamp(pitchDeg, PitchLimitLower, PitchLimitUpper);
+    }
+
+    public void LimitYaw(ref float yawDeg)
+    {
+        yawDeg = Mathf.Clamp(yawDeg, YawLimitLower, YawLimitUpper);
     }
 }

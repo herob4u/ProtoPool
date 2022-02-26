@@ -15,7 +15,7 @@ MonoBehaviour:
   GameAssets: {fileID: 11400000, guid: 633956ad0393ca949a366e130fc5ab27, type: 2}
   BallAssets: {fileID: 11400000, guid: 2f27c42fb3977b0469e1f149bcaad34e, type: 2}
   MaxPlayers: 2
-  MinPlayers: 1
+  MinPlayers: 2
   TurnsPerPlayer: 1
   BallsInPlay: 
   WinCondition:

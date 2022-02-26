@@ -10,12 +10,11 @@ GameObject:
   m_Component:
   - component: {fileID: 2219269447144571759}
   - component: {fileID: 2219269447144571755}
-  - component: {fileID: 2219269447144571756}
   - component: {fileID: 2219269447144571757}
   - component: {fileID: 2219269447144571754}
   - component: {fileID: 4408230130742802812}
   - component: {fileID: 8931482667786995525}
-  - component: {fileID: -8743956474172509576}
+  - component: {fileID: 2477447768816794978}
   m_Layer: 0
   m_Name: Prefab_Cue
   m_TagString: Untagged
@@ -53,22 +52,6 @@ MonoBehaviour:
   AlwaysReplicateAsRoot: 0
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
---- !u!114 &2219269447144571756
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2219269447144571752}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8968280f5b1ca1a43853074d51a962bf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SwingActionDeadTime: 0.1
-  SwingConfirmationThreshold: 0.05
-  SwingAxisMultiplier: {x: 0.5, y: 0.5}
-  TurnAxisMultiplier: {x: 1, y: 1}
 --- !u!114 &2219269447144571757
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -85,9 +68,12 @@ MonoBehaviour:
   OrbitOffset: 0
   OrbitPitch: 0
   OrbitYaw: 0
+  PitchLimitLower: -89.9
+  PitchLimitUpper: 89.9
+  YawLimitLower: -359.9
+  YawLimitUpper: 359.9
   bIsPitchIgnored: 0
   bIsYawIgnored: 0
-  bInterpolatePull: 0
   InterpolateDuration: 0.065
   MaxPullDistance: 0.2
 --- !u!114 &2219269447144571754
@@ -153,7 +139,7 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2219269447144571752}
   m_Mesh: {fileID: 4284495879728275602, guid: 1e960411bf761094c808f422e06bd18c, type: 3}
---- !u!114 &-8743956474172509576
+--- !u!114 &2477447768816794978
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -162,7 +148,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2219269447144571752}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 54c9647dc784a46bca664910f182491e, type: 3}
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   SyncPositionX: 1
@@ -174,7 +160,7 @@ MonoBehaviour:
   SyncScaleX: 0
   SyncScaleY: 0
   SyncScaleZ: 0
-  PositionThreshold: 0.001
+  PositionThreshold: 0.01
   RotAngleThreshold: 0.01
   ScaleThreshold: 0.01
   InLocalSpace: 0

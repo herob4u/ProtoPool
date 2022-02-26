@@ -66,6 +66,19 @@ public class PoolTable : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         base.OnNetworkDespawn();
+
+        if (IsServer)
+        {
+            foreach (PoolBall ball in PoolBalls)
+            {
+                if (ball)
+                {
+                    Debug.LogWarningFormat("Destroying {0}", ball.gameObject.name);
+                    ball.GetComponent<NetworkObject>().Despawn(true);
+                    //Destroy(ball.gameObject);
+                }
+            }
+        }
     }
 
     private void OnTriggerExit(Collider other)
@@ -146,18 +159,6 @@ public class PoolTable : NetworkBehaviour
 
     public override void OnDestroy()
     {
-        if(IsServer)
-        {
-            foreach (PoolBall ball in PoolBalls)
-            {
-                if (ball)
-                {
-                    Debug.LogWarningFormat("Destroying {0}", ball.gameObject.name);
-                    ball.GetComponent<NetworkObject>().Despawn(true);
-                    //Destroy(ball.gameObject);
-                }
-            }
-        }
     }
 
     public Vector3 GetIdealRackPosition()

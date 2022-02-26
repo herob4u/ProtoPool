@@ -452,6 +452,7 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
                 GameObject cueObj = Instantiate(DefaultSettings.PoolCuePrefab);
                 cueObj.name = "Cue" + player.NetId;
                 cueObj.GetComponent<NetworkObject>().SpawnWithOwnership(player.NetId);
+                //cueObj.GetComponent<PoolCue>().SetCueActive(false);
 
                 GamePlayers[i].CueObject = cueObj;
                 GamePlayers[i].Score = 0;
@@ -506,6 +507,13 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
                 return;
             }
 
+            if(gamePlayer.CueObject.activeSelf == active)
+            {
+                Debug.LogFormat("SetGamePlayerActive not completed - no state change required");
+                return;
+            }
+
+            Debug.LogFormat("Setting GamePlayer Active: player={0}, active={1}, exclusive={2}", gamePlayer.Player.NetId, active.ToString(), exclusive.ToString());
             // The server doesn't own the cue object, so instead, it tells all clients about its active state so that they reflect it locally.
             if(!exclusive)
             {
@@ -633,10 +641,14 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
         // Freeze everything so we don't accidentally alter them
         PoolTableObj.GetComponent<PoolTable>().SetBallsFrozen(true);
 
-        if (TurnController)
+        if(!bIsPositioningRack)
         {
-            TurnController.SetTurnState(SimpleTurnController.ETurnState.Ending);
+            if (TurnController)
+            {
+                TurnController.SetTurnState(SimpleTurnController.ETurnState.Ending);
+            }
         }
+
     }
 
     private void OnPoolBallScored(PoolBall ball, PoolGamePlayer byPlayer)
@@ -676,6 +688,14 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
             return;
         }
 
+        Debug.Log("OnPlayerAcquiredTurn Turn");
+        if (bIsPositioningRack)
+        {
+            Debug.LogWarning("Rack being positioned, ignoring turn acquistion");
+            return;
+        }
+
+        // Determine what are we doing this turn - are we cue-ing? placing rack?
         SetGamePlayerActive(poolPlayer, true, true);
 
         // Instruct the owning player to target the cue ball.
@@ -710,6 +730,15 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
             return;
         }
 
+        Debug.Log("OnPlayerContinued Turn");
+        if (bIsPositioningRack)
+        {
+            Debug.LogWarning("Rack being positioned, ignoring turn continuation");
+            return;
+        }
+
+        SetGamePlayerActive(poolPlayer, true, true);
+
         // Instruct the owning player to target the cue ball.
         // Just like the turn acquistion case, we want to reposition outselves w.r.t the cue ball
         PoolBall cueBall = PoolTableObj.GetComponent<PoolTable>().GetCueBall();
@@ -732,7 +761,13 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
     {
         if(IsServer)
         {
+            Debug.Log("Server: Rack placement started");
             ulong controllingPlayer = PoolRackObj.GetComponent<PoolRack>().GetControllingPlayerNetId();
+
+            foreach(GamePlayer poolPlayer in GamePlayers)
+            {
+                SetGamePlayerActive(false, poolPlayer.Player.NetId);
+            }
 
             // Notify clients
             OnRackPlacementStartedClientRpc(controllingPlayer);
@@ -742,6 +777,8 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
     [ClientRpc]
     private void OnRackPlacementStartedClientRpc(ulong controllingPlayer)
     {
+        Debug.Log("Client: Rack placement started");
+
         Player localPlayer = PlayerMgr.Instance.GetLocalPlayer();
 
         // I am the one given control, enable my inputs for the rack
@@ -756,6 +793,7 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
     {
         if(IsServer)
         {
+            Debug.Log("Server: Rack placement finished");
             DisablePoolRack();
 
             if (TurnController)
@@ -771,6 +809,8 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
     [ClientRpc]
     private void OnRackPlacementFinishedClientRpc()
     {
+        Debug.Log("Client: Rack placement finished");
+
         Player localPlayer = PlayerMgr.Instance.GetLocalPlayer();
         // @ WIP: remote player PoolRackObj is still null!!! Need to address it.
         localPlayer.GetPlayerComponent<PoolPlayerInput>().SetInputTarget(null);

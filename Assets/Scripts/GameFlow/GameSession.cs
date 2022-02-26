@@ -60,6 +60,12 @@ public class GameSession : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        if(!NetworkManager.Singleton)
+        {
+            Debug.LogError("GameSession cannot exist without a valid NetworkManager");
+            return;
+        }
+
         NetworkManager.Singleton.OnServerStarted += OnServerStarted;
         NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
         NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
@@ -71,10 +77,16 @@ public class GameSession : MonoBehaviour
 
     private void OnDestroy()
     {
-        NetworkManager.Singleton.OnServerStarted -= OnServerStarted;
-        NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
-        NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-        NetworkManager.Singleton.ConnectionApprovalCallback -= OnConnectionRequest;
+        if(NetworkManager.Singleton)
+        {
+            ShutdownSession();
+
+            NetworkManager.Singleton.OnServerStarted -= OnServerStarted;
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+            NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+            NetworkManager.Singleton.ConnectionApprovalCallback -= OnConnectionRequest;
+        }
+
 
         PlayerMgr.Instance.OnPlayerJoined -= OnPlayerCreated;
         PlayerMgr.Instance.OnPlayerLeft -= OnPlayerDestroyed;
