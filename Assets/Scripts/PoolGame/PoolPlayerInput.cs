@@ -93,7 +93,7 @@ public class PoolPlayerInput : PlayerComponent
 #if UNITY_EDITOR
         if (DebugCursorObject == null)
         {
-            DebugCursorObject = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/DebugCube.prefab");
+            DebugCursorObject = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Prefabs/DebugCube.prefab");
         }
 
         DebugCursorObject = Instantiate(DebugCursorObject);

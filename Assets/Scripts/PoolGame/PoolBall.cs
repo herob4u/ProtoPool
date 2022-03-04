@@ -28,29 +28,8 @@ public struct LaunchNetData
 }
 
 /* Represents one of the balls present on the pool table */
-public class PoolBall : NetworkBehaviour
+public class PoolBall : NetworkBehaviourExt
 {
-    public static Dictionary<EPoolBallType, PoolBallDescriptor> BallTypesDescriptors = new Dictionary<EPoolBallType, PoolBallDescriptor>()
-    {
-        { EPoolBallType.Cue,                new PoolBallDescriptor(null, EPoolBallType.Cue) },
-        { EPoolBallType.Solid_Yellow,       new PoolBallDescriptor(null, EPoolBallType.Solid_Yellow) },
-        { EPoolBallType.Solid_Blue,         new PoolBallDescriptor(null, EPoolBallType.Solid_Blue) },
-        { EPoolBallType.Solid_Red,          new PoolBallDescriptor(null, EPoolBallType.Solid_Red) },
-        { EPoolBallType.Solid_Violet,       new PoolBallDescriptor(null, EPoolBallType.Solid_Violet) },
-        { EPoolBallType.Solid_Orange,       new PoolBallDescriptor(null, EPoolBallType.Solid_Orange) },
-        { EPoolBallType.Solid_Green,        new PoolBallDescriptor(null, EPoolBallType.Solid_Green) },
-        { EPoolBallType.Solid_Maroon,       new PoolBallDescriptor(null, EPoolBallType.Solid_Maroon) },
-        { EPoolBallType.Solid_Black,        new PoolBallDescriptor(null, EPoolBallType.Solid_Black) },
-
-        { EPoolBallType.Stripe_Yellow,       new PoolBallDescriptor(null, EPoolBallType.Stripe_Yellow) },
-        { EPoolBallType.Stripe_Blue,         new PoolBallDescriptor(null, EPoolBallType.Stripe_Blue) },
-        { EPoolBallType.Stripe_Red,          new PoolBallDescriptor(null, EPoolBallType.Stripe_Red) },
-        { EPoolBallType.Stripe_Violet,       new PoolBallDescriptor(null, EPoolBallType.Stripe_Violet) },
-        { EPoolBallType.Stripe_Orange,       new PoolBallDescriptor(null, EPoolBallType.Stripe_Orange) },
-        { EPoolBallType.Stripe_Green,        new PoolBallDescriptor(null, EPoolBallType.Stripe_Green) },
-        { EPoolBallType.Stripe_Maroon,       new PoolBallDescriptor(null, EPoolBallType.Stripe_Maroon) }
-    };
-
     public PoolBallDescriptor BallDescriptor;
 
     public delegate void OnBallLaunchedDelegate(PoolBall self);
@@ -63,16 +42,16 @@ public class PoolBall : NetworkBehaviour
 
     private bool bIsInPlay = true;
 
-    public override void OnNetworkSpawn()
+    protected override void OnReplicaResolved(ulong clientId)
     {
-        if (IsServer)
-        {
+        base.OnReplicaResolved(clientId);
 
-        }
-        else
-        {
+        ClientRpcParams rpcParams = new ClientRpcParams();
+        rpcParams.Send = new ClientRpcSendParams();
+        rpcParams.Send.TargetClientIds = new ulong[] { clientId };
 
-        }
+        // Send the joining player the updated ball visuals.
+        InitFromDescriptorClientRpc(BallDescriptor.BallType, ResourceMgr.Instance.GetResourceId<Texture>(BallDescriptor.BallTexture), rpcParams);
     }
 
     // Start is called before the first frame update
@@ -174,7 +153,6 @@ public class PoolBall : NetworkBehaviour
 
     public void SetBallType(EPoolBallType ballType)
     {
-        //PoolBallDescriptor descriptor = BallTypesDescriptors[ballType];
         PoolBallAssetDb assetDb = PoolGameDirector.Instance.GetGameRules().BallAssets;
 
         if(assetDb)
@@ -199,24 +177,40 @@ public class PoolBall : NetworkBehaviour
 
     private void InitFromDescriptor(PoolBallDescriptor descriptor)
     {
-        if(!BallMeshRenderer)
+        BallDescriptor = descriptor;
+        OnDescriptorUpdated();
+
+        InitFromDescriptorClientRpc(BallDescriptor.BallType, ResourceMgr.Instance.GetResourceId<Texture>(BallDescriptor.BallTexture));
+    }
+
+    private void OnDescriptorUpdated()
+    {
+        Logger.LogScreen("OnDescriptorUpdated!");
+
+        if (!BallMeshRenderer)
         {
             Debug.LogWarning("BallMeshRenderer still not initialized");
             return;
         }
 
         Material ballMat = BallMeshRenderer.material;
-        if(!ballMat)
+        if (!ballMat)
         {
             Debug.LogError("Expected Pool Ball to have a valid material for its MeshRenderer");
             return;
         }
 
-        if(descriptor.BallTexture)
-        {
-            ballMat.SetTexture("_MainTex", descriptor.BallTexture);
-        }
+        // Null texture for cue ball.
+        ballMat.SetTexture("_MainTex", BallDescriptor.BallTexture);
+    }
 
-        BallDescriptor = descriptor;
+    [ClientRpc]
+    private void InitFromDescriptorClientRpc(EPoolBallType ballType, Hash128 textureId, ClientRpcParams rpcParams = default)
+    {
+        // Try and get the texture
+        Texture2D ballTexture = ResourceMgr.Instance.GetResource<Texture2D>(textureId);
+        BallDescriptor = new PoolBallDescriptor(ballTexture, ballType);
+
+        OnDescriptorUpdated();
     }
 }

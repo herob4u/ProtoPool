@@ -280,8 +280,6 @@ public class PoolTable : NetworkBehaviour
             poolBall = ballObj.AddComponent<PoolBall>();
         }
 
-        poolBall.SetBallType(ballType);
-
         Rigidbody rigidbody = ballObj.GetComponent<Rigidbody>();
         if(rigidbody)
         {
@@ -295,7 +293,9 @@ public class PoolTable : NetworkBehaviour
         }
 
         // Network object can only be reparented after being spawned.
-        ballObj.transform.SetParent(this.transform, true);
+        // RPCs can only be called after spawn, so make sure to do networked initializations afterwards too.
+        ballObj.transform.SetParent(transform, true);
+        poolBall.SetBallType(ballType);
 
         return ballObj;
     }

@@ -7,6 +7,9 @@ class Pool
     public const int NUM_BALLS = 16;
     public const string DefaultPoolTableAssetPath = "";
     public const string DefaultPoolCueAssetPath = "";
+    public const string TextureBundle = "pool/textures";
+    public const string MaterialBundle = "pool/materials";
+    public const string MeshBundle = "pool/meshes";
 }
 
 /* Typed, in order by the numbers they show */
