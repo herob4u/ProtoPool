@@ -211,6 +211,9 @@ public class PoolBall : NetworkBehaviourExt
         Texture2D ballTexture = ResourceMgr.Instance.GetResource<Texture2D>(textureId);
         BallDescriptor = new PoolBallDescriptor(ballTexture, ballType);
 
-        OnDescriptorUpdated();
+        if(GetComponent<NetworkMeshRenderer>() == null)
+        {
+            OnDescriptorUpdated();
+        }
     }
 }

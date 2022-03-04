@@ -27,15 +27,15 @@ public class ResourceIndex : ScriptableObject, ISerializationCallbackReceiver
     [SerializeField] public Dictionary<Hash128, string> MaterialPaths = new Dictionary<Hash128, string>();
     [SerializeField] public Dictionary<Hash128, string> MeshPaths = new Dictionary<Hash128, string>();
 
-    [SerializeField] private List<string> BaseKeys = new List<string>(); // String because Hash128 doesn't serialize properly and zeroes out.
-    [SerializeField] private List<string> TextureKeys = new List<string>();
-    [SerializeField] private List<string> MaterialKeys = new List<string>();
-    [SerializeField] private List<string> MeshKeys = new List<string>();
+    [SerializeField, HideInInspector] private List<string> BaseKeys = new List<string>(); // String because Hash128 doesn't serialize properly and zeroes out.
+    [SerializeField, HideInInspector] private List<string> TextureKeys = new List<string>();
+    [SerializeField, HideInInspector] private List<string> MaterialKeys = new List<string>();
+    [SerializeField, HideInInspector] private List<string> MeshKeys = new List<string>();
 
-    [SerializeField] private List<string> BaseValues = new List<string>();
-    [SerializeField] private List<string> TextureValues = new List<string>();
-    [SerializeField] private List<string> MaterialValues = new List<string>();
-    [SerializeField] private List<string> MeshValues = new List<string>();
+    [SerializeField, HideInInspector] private List<string> BaseValues = new List<string>();
+    [SerializeField, HideInInspector] private List<string> TextureValues = new List<string>();
+    [SerializeField, HideInInspector] private List<string> MaterialValues = new List<string>();
+    [SerializeField, HideInInspector] private List<string> MeshValues = new List<string>();
 
     [ReadOnly] public DebugResourceIndexEntry[] DebugBaseEntries;
     [ReadOnly] public DebugResourceIndexEntry[] DebugTextureEntries;
@@ -92,15 +92,15 @@ public class ResourceIndex : ScriptableObject, ISerializationCallbackReceiver
         Dictionary<Hash128, string> resourcePaths = BasePaths;
 
         System.Type type = typeof(T);
-        if(type.IsSubclassOf(typeof(Texture)))
+        if(type == typeof(Texture) || type.IsSubclassOf(typeof(Texture)))
         {
             resourcePaths = TexturePaths;
         }
-        else if(type == typeof(Mesh))
+        else if(type == typeof(Mesh) || type.IsSubclassOf(typeof(Mesh)))
         {
             resourcePaths = MeshPaths;
         }
-        else if (type == typeof(Material))
+        else if (type == typeof(Material) || type.IsSubclassOf(typeof(Material)))
         {
             resourcePaths = MaterialPaths;
         }

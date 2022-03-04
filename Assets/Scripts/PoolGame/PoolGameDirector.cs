@@ -242,6 +242,12 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
             PoolGamePlayer poolPlayer = new PoolGamePlayer(player);
             GamePlayers.Add(poolPlayer);
 
+            if (bHasStarted)
+            {
+                DoSpawnPoolPlayer(poolPlayer, GetGameRules().GameAssets);
+                SetGamePlayerActive(poolPlayer, false);
+            }
+
             if (TurnController)
             {
                 TurnController.AddPlayer(poolPlayer);
@@ -275,6 +281,11 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
                     if (TurnController)
                     {
                         TurnController.RemovePlayer(gamePlayer);
+                    }
+
+                    if(bHasStarted)
+                    {
+                        DoDespawnPoolPlayer(gamePlayer);
                     }
                 }
             }
@@ -445,20 +456,24 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
         // representation in the game, and therefore its events are used to communicate to the director on the server.
         for (int i = 0; i < GamePlayers.Count; ++i)
         {
-            Player player = GamePlayers[i].Player;
-
-            if (player != null)
-            {
-                GameObject cueObj = Instantiate(DefaultSettings.PoolCuePrefab);
-                cueObj.name = "Cue" + player.NetId;
-                cueObj.GetComponent<NetworkObject>().SpawnWithOwnership(player.NetId);
-                //cueObj.GetComponent<PoolCue>().SetCueActive(false);
-
-                GamePlayers[i].CueObject = cueObj;
-                GamePlayers[i].Score = 0;
-            }
+            DoSpawnPoolPlayer(GamePlayers[i], DefaultSettings);
         }
+    }
 
+    void DoSpawnPoolPlayer(PoolGamePlayer poolPlayer, PoolGameAssets defaultSettings)
+    {
+        Player player = poolPlayer.Player;
+
+        if (player != null)
+        {
+            GameObject cueObj = Instantiate(defaultSettings.PoolCuePrefab);
+            cueObj.name = "Cue" + player.NetId;
+            cueObj.GetComponent<NetworkObject>().SpawnWithOwnership(player.NetId);
+            //cueObj.GetComponent<PoolCue>().SetCueActive(false);
+
+            poolPlayer.CueObject = cueObj;
+            poolPlayer.Score = 0;
+        }
     }
 
     void DespawnPoolGame()
@@ -490,11 +505,15 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
 
         foreach (PoolGamePlayer player in GamePlayers)
         {
-            Debug.LogWarningFormat("Destroying cue {0}", player.CueObject.name);
-            player.CueObject.GetComponent<NetworkObject>().Despawn();
-            //Destroy(player.CueObject);
-            player.Score = 0;
+            DoDespawnPoolPlayer(player);
         }
+    }
+
+    void DoDespawnPoolPlayer(PoolGamePlayer poolPlayer)
+    {
+        Debug.LogWarningFormat("Destroying cue {0}", poolPlayer.CueObject.name);
+        poolPlayer.CueObject.GetComponent<NetworkObject>().Despawn();
+        poolPlayer.Score = 0;
     }
 
     void SetGamePlayerActive(PoolGamePlayer gamePlayer, bool active, bool exclusive = false)
@@ -507,11 +526,13 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
                 return;
             }
 
+            // @todo: this may be undesirable, it might be our only way of fixing an out of sync client
+            /*
             if(gamePlayer.CueObject.activeSelf == active)
             {
                 Debug.LogFormat("SetGamePlayerActive not completed - no state change required");
                 return;
-            }
+            }*/
 
             Debug.LogFormat("Setting GamePlayer Active: player={0}, active={1}, exclusive={2}", gamePlayer.Player.NetId, active.ToString(), exclusive.ToString());
             // The server doesn't own the cue object, so instead, it tells all clients about its active state so that they reflect it locally.

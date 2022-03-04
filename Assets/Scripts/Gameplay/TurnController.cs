@@ -143,6 +143,13 @@ public class SimpleTurnController : TurnController
         }
 
         GamePlayers.Remove(player);
+
+        // If we have remaining players, refresh the turns so a valid player is handling the turn.
+        if(GamePlayers.Count > 0)
+        {
+            RefreshTurnPlayer();
+        }
+
         return true;
     }
 
@@ -213,6 +220,30 @@ public class SimpleTurnController : TurnController
             }
         }
     }
+
+    // Called whenever the list of players is altered. Ensures a valid turn player is selected.
+    public void RefreshTurnPlayer()
+    {
+        GamePlayer currPlayer = GetTurnPlayer();
+        if(currPlayer == null)
+        {
+            GamePlayer nextPlayer = GetNextTurnPlayer();
+            if(nextPlayer != null)
+            {
+                SetTurnPlayer(nextPlayer);
+            }
+
+            // Failed to set turn player, so just force ending the turn
+            if(GetTurnPlayer() != nextPlayer)
+            {
+                Debug.LogWarning("Ending turn because no valid player is selected for TurnController");
+                EndTurn();
+            }
+        }
+
+        Debug.LogWarning("No players left for TurnController");
+    }
+
     public override void SetTurnPlayer(GamePlayer turnPlayer)
     {
         if (TurnState.Value != ETurnState.None)
