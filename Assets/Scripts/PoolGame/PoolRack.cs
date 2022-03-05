@@ -148,6 +148,8 @@ public class PoolRack : NetworkBehaviour
     }
 
     // @todo: should this remain as private?
+    // Called when rack placement is started. Moves the relevant balls into their designated rack slot, and
+    // disables physics for stable user placement to occur.
     private void CollectBallsIntoRack()
     {
         if (!IsServer)
@@ -198,6 +200,8 @@ public class PoolRack : NetworkBehaviour
     }
 
     // @todo: should this remain private?
+    // Called after rack position is finalized. Releases the attachment of the balls from the rack,
+    // and resets their physics state.
     private void ReleaseBallsFromRack()
     {
         if(!IsServer)
@@ -325,6 +329,28 @@ public class PoolRack : NetworkBehaviour
 
             WidthOffset = Mathf.Clamp(dWidth, -WidthExtent, WidthExtent);
             LengthOffset = Mathf.Clamp(dLength, -LengthExtent, LengthExtent);
+        }
+    }
+
+    public void FlipRack()
+    {
+        if(IsClient)
+        {
+            FlipRackServerRpc();
+        }
+    }
+
+    [ServerRpc]
+    void FlipRackServerRpc(ServerRpcParams rpcParams = default)
+    {
+        if(!IsServer)
+        {
+            return;
+        }
+
+        if(CanPlayerControlRack(rpcParams.Receive.SenderClientId))
+        {
+            transform.Rotate(new Vector3(0.0f, 180.0f, 0.0f), Space.Self);
         }
     }
 

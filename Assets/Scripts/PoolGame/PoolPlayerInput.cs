@@ -11,6 +11,7 @@ public class PoolPlayerInput : PlayerComponent
     const string AXIS_TURN_CUE_Y = "TurnCue Y";
     const string AXIS_MOVE_RACK_X = "MoveRack X";
     const string AXIS_MOVE_RACK_Y = "MoveRack Y";
+    const string AXIS_FLIP_RACK = "FlipRack";
 
     // Duration in seconds to hold the action input for it to register for a swing, otherwise users miscliking can accidently enter and release a swing immediately.
     public float SwingActionDeadTime = 0.1f;
@@ -149,6 +150,13 @@ public class PoolPlayerInput : PlayerComponent
         if(Input.GetButtonDown(AXIS_ACTION))
         {
             poolRack.FinishPlacement();
+            return;
+        }
+
+        if(Input.GetAxis(AXIS_FLIP_RACK) != 0)
+        {
+            Debug.Log("flip rack");
+            poolRack.FlipRack();
             return;
         }
 
