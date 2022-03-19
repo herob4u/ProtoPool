@@ -40,6 +40,7 @@ public class PoolCue : NetworkBehaviour
     // ...
 
     public PoolBall ServingPoolBall { get; private set; }
+    public PoolGamePlayer OwningPoolPlayer { get; private set; }
     private PoolPlayerCameraMgr CameraMgr = null;
 
     [SerializeField]
@@ -80,6 +81,14 @@ public class PoolCue : NetworkBehaviour
         }
     }
     
+    public void AssignPoolPlayer(PoolGamePlayer poolPlayer)
+    {
+        if(IsServer)
+        {
+            OwningPoolPlayer = poolPlayer;
+        }
+    }
+
     // Called on the clients to hide the cue object, and disable its inputs if it's our own cue
     public void SetCueActive(bool active)
     {
@@ -460,8 +469,12 @@ public class PoolCue : NetworkBehaviour
         {
             if(ServingPoolBall)
             {
-                LaunchNetData launchData = new LaunchNetData(hitData.HitOrigin, hitData.HitDirection, hitData.SwingPct * 5.0f);
-                ServingPoolBall.OnLaunch(launchData);
+                LaunchEventInfo launchEvent;
+                launchEvent.InstigatorPlayer = OwningPoolPlayer;
+                launchEvent.InstigatorObject = gameObject;
+                launchEvent.LaunchVelocity = ComputeLaunchVelocity(hitData);
+
+                ServingPoolBall.OnLaunch(launchEvent);
             }
             else
             {
@@ -470,11 +483,9 @@ public class PoolCue : NetworkBehaviour
         }
     }
 
-    public void OnDebugHitCue(float launchVelocity)
+    Vector3 ComputeLaunchVelocity(PoolHitNetData hitData)
     {
-        if(ServingPoolBall)
-        {
-            ServingPoolBall.OnLaunch(Vector3.zero, transform.forward * launchVelocity);
-        }
+        // @todo: replace the constant with some value indicative of strength
+        return hitData.HitDirection * (hitData.SwingPct * 5.0f);
     }
 }

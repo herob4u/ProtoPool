@@ -72,3 +72,17 @@ public struct ImpactEventInfo
     public Vector3 Impulse;
     public ContactPoint ImpactPoint;
 }
+
+[System.Serializable]
+public struct LaunchEventInfo
+{
+    public GamePlayer InstigatorPlayer;
+    public GameObject InstigatorObject; // Usually the player controlled object that launched us
+    public Vector3 LaunchVelocity;
+}
+
+[System.Serializable]
+public struct ScoreEventInfo
+{
+    public LaunchEventInfo LaunchInfo;
+}

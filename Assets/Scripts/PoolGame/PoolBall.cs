@@ -3,44 +3,27 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
-public struct LaunchNetData
-{
-    public Vector3 ImpactPoint;
-    public Vector3 ImpactDirection;
-    public float ImpactForce;
-    public Vector3 OverrideVelocity;
-
-    public LaunchNetData(Vector3 overrideVelocity)
-    {
-        ImpactPoint = Vector3.zero;
-        ImpactDirection = Vector3.zero;
-        ImpactForce = 0.0f;
-        OverrideVelocity = overrideVelocity;
-    }
-
-    public LaunchNetData(Vector3 impactPoint, Vector3 impactDir, float impactForce)
-    {
-        ImpactPoint = impactPoint;
-        ImpactDirection = impactDir;
-        ImpactForce = impactForce;
-        OverrideVelocity = Vector3.zero;
-    }
-}
-
 /* Represents one of the balls present on the pool table */
 public class PoolBall : NetworkBehaviourExt
 {
     public PoolBallDescriptor BallDescriptor;
-
-    public delegate void OnBallLaunchedDelegate(PoolBall self);
-    public OnBallLaunchedDelegate OnBallLaunched { get; set; }
 
     private SphereCollider BallCollider;
     private Rigidbody BallRigidBody;
     private MeshFilter BallMesh;
     private MeshRenderer BallMeshRenderer;
 
-    private bool bIsInPlay = true;
+    public bool bIsMoving { get; private set; }
+    public bool bIsLaunched { get; private set; }
+    public bool bIsInPlay { get; private set; }
+
+    LaunchEventInfo LaunchInfo;
+
+    public PoolBall()
+    {
+        bIsLaunched = false;
+        bIsInPlay = true;
+    }
 
     protected override void OnReplicaResolved(ulong clientId)
     {
@@ -89,66 +72,64 @@ public class PoolBall : NetworkBehaviourExt
         }
     }
 
-    // Update is called once per frame
-    void Update()
+    protected override void ServerUpdate()
     {
-
-    }
-
-    [ServerRpc]
-    void OnLaunch_ServerRpc(LaunchNetData launchData)
-    {
-        if(!IsServer)
+        if(BallRigidBody)
         {
-            return;
-        }
-
-        Debug.LogWarning("OnLaunch_ServerRpc: WIP, don't expect this to be called on a client");
-        return;
-
-        //OnLaunch(launchData);
-    }
-
-    public void OnLaunch(LaunchNetData launchData)
-    {
-        if (IsServer)
-        {
-            if (BallRigidBody)
+            if((bIsLaunched || bIsMoving) && BallRigidBody.IsSleeping())
             {
-                BallRigidBody.velocity = launchData.OverrideVelocity.magnitude == 0 ? launchData.ImpactForce * launchData.ImpactDirection.normalized : launchData.OverrideVelocity;
+                OnStopped();
+            }
+        }
+    }
 
-                if(OnBallLaunched != null)
-                {
-                    OnBallLaunched.Invoke(this);
-                }
+    public void OnLaunch(LaunchEventInfo launchEvent)
+    {
+        if(IsServer)
+        {
+            if(BallRigidBody)
+            {
+                Logger.LogScreen($"Launch velocity = {launchEvent.LaunchVelocity}");
+
+                bIsLaunched = true;
+                bIsMoving = true;
+
+                BallRigidBody.velocity = launchEvent.LaunchVelocity;
 
                 PoolTable poolTable = GetPoolTable();
-                if(poolTable)
+                if (poolTable)
                 {
-                    poolTable.NotifyBallLaunched(this);
+                    poolTable.NotifyBallLaunched(this, launchEvent);
                 }
             }
         }
-        else
-        {
-            OnLaunch_ServerRpc(launchData);
-        }
     }
 
-    public void OnLaunch(Vector3 impactPoint, Vector3 impactVelocity)
+    // Called when the pool ball has stopped moving following
+    protected void OnStopped()
     {
-        LaunchNetData launchData;
-        launchData.OverrideVelocity = impactVelocity;
-        launchData.ImpactForce = 0.0f;
-        launchData.ImpactPoint = Vector3.zero;
-        launchData.ImpactDirection = Vector3.zero;
+        bIsMoving = false;
+        bIsLaunched = false;
 
-        OnLaunch(launchData);
+        PoolTable poolTable = GetPoolTable();
+        if (poolTable)
+        {
+            poolTable.NotifyBallStopped(this);
+        }
     }
 
     public bool IsCueBall()
     {
         return BallDescriptor.BallType == EPoolBallType.Cue;
+    }
+
+    public void SetInPlay(bool isInPlay)
+    {
+        if(bIsInPlay != isInPlay)
+        {
+            bIsInPlay = isInPlay;
+            gameObject.SetActive(isInPlay);
+        }
     }
 
     public void SetBallType(EPoolBallType ballType)

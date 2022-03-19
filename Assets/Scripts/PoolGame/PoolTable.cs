@@ -8,7 +8,7 @@ public class PoolTable : NetworkBehaviour
 {
     // Called whenever the balls have come to rest.
     public delegate void OnPoolBallsStoppedDelegate();
-    public delegate void OnPoolBallLaunchedDelegate(PoolBall ball);
+    public delegate void OnPoolBallLaunchedDelegate(PoolBall ball, LaunchEventInfo launchEvent);
     public delegate void OnPoolBallScoredDelegate(PoolBall ball, PoolGamePlayer byPlayer);
 
     [SerializeField] private BoxCollider PlayBox;
@@ -35,6 +35,7 @@ public class PoolTable : NetworkBehaviour
 
     public bool AreBallsMoving { get => bAreBallsMoving; }
 
+    public System.Action<PoolBall> OnPoolBallStopped { get; set; }
     public OnPoolBallsStoppedDelegate OnPoolBallsStopped { get; set; }
     public OnPoolBallScoredDelegate OnPoolBallScored { get; set; }
 
@@ -71,7 +72,7 @@ public class PoolTable : NetworkBehaviour
         {
             foreach (PoolBall ball in PoolBalls)
             {
-                if (ball)
+                if (ball && ball.IsSpawned)
                 {
                     Debug.LogWarningFormat("Destroying {0}", ball.gameObject.name);
                     ball.GetComponent<NetworkObject>().Despawn(true);
@@ -103,7 +104,7 @@ public class PoolTable : NetworkBehaviour
         else
         {
             // Ball is disabled from play.
-            ball.gameObject.SetActive(false);
+            ball.SetInPlay(false);
             OnPoolBallScored.Invoke(ball, null);
         }
     }
@@ -136,7 +137,7 @@ public class PoolTable : NetworkBehaviour
                 Rigidbody rigidbody = ball.GetComponent<Rigidbody>();
                 if (rigidbody)
                 {
-                    areAllBallsStopped &= rigidbody.IsSleeping();
+                    areAllBallsStopped &= !ball.bIsMoving;
                 }
             }
         }
@@ -233,13 +234,27 @@ public class PoolTable : NetworkBehaviour
         bAreBallsMoving = true;
     }
 
-    public void NotifyBallLaunched(PoolBall ball)
+    public void NotifyBallLaunched(PoolBall ball, LaunchEventInfo launchEvent)
     {
         bAreBallsMoving = true;
 
         if(OnPoolBallLaunched != null)
         {
-            OnPoolBallLaunched.Invoke(ball);
+            OnPoolBallLaunched.Invoke(ball, launchEvent);
+        }
+    }
+
+    public void NotifyBallStopped(PoolBall ball)
+    {
+        if(!ball)
+        {
+            Debug.LogWarning("NotifyBallStopped called on invalid pool ball");
+            return;
+        }
+
+        if(OnPoolBallStopped != null)
+        {
+            OnPoolBallStopped.Invoke(ball);
         }
     }
 

@@ -23,4 +23,26 @@ public class NetworkBehaviourExt : NetworkBehaviour
     {
 
     }
+
+    private void Update()
+    {
+        if(IsServer)
+        {
+            ServerUpdate();
+        }
+        else
+        {
+            ClientUpdate();
+        }
+    }
+
+    virtual protected void ServerUpdate()
+    {
+
+    }
+
+    virtual protected void ClientUpdate()
+    {
+
+    }
 }

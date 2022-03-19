@@ -469,7 +469,7 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
             GameObject cueObj = Instantiate(defaultSettings.PoolCuePrefab);
             cueObj.name = "Cue" + player.NetId;
             cueObj.GetComponent<NetworkObject>().SpawnWithOwnership(player.NetId);
-            //cueObj.GetComponent<PoolCue>().SetCueActive(false);
+            cueObj.GetComponent<PoolCue>().AssignPoolPlayer(poolPlayer);
 
             poolPlayer.CueObject = cueObj;
             poolPlayer.Score = 0;
@@ -610,7 +610,7 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
     // ----- Event Handlers -----
 
     // When the player hits the cue ball, perform some camera cuts, and hide their cue
-    private void OnPoolBallLaunched(PoolBall poolBall)
+    private void OnPoolBallLaunched(PoolBall poolBall, LaunchEventInfo launchEvent)
     {
         if(IsServer)
         {
@@ -618,6 +618,8 @@ public class PoolGameDirector : NetworkBehaviour, ISessionHandler
             {
                 Debug.LogWarning("OnPoolBallLaunched: pool ball is invalid");
             }
+
+            Logger.LogScreen($"{poolBall.name} was launched by {launchEvent.InstigatorObject.name}");
 
             GetActivePoolPlayer().CueObject.GetComponent<PoolCue>().ResetAcquistion();
 
