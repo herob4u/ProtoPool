@@ -63,7 +63,11 @@ public class PoolGameRules : ScriptableObject
     [Range(1, 16)]
     public int TurnsPerPlayer = 1;
 
+    [Tooltip("The type of balls to spawn for this game.")]
     public EPoolBallType[] BallsInPlay;
+
+    [Tooltip("Whether the player manually aligns the balls with a rack at the start of the game")]
+    public bool DoRackPlacement;
 
     public PoolCondition[] WinCondition;
     public PoolCondition[] LoseCondition;

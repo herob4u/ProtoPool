@@ -83,6 +83,16 @@ public class PoolBall : NetworkBehaviourExt
         }
     }
 
+    public void OnLaunch(Vector3 velocity, GameObject instigatingObject, GamePlayer instigatingPlayer = null)
+    {
+        LaunchEventInfo launchEvent;
+        launchEvent.LaunchVelocity = velocity;
+        launchEvent.InstigatorObject = instigatingObject;
+        launchEvent.InstigatorPlayer = instigatingPlayer;
+
+        OnLaunch(launchEvent);
+    }
+
     public void OnLaunch(LaunchEventInfo launchEvent)
     {
         if(IsServer)

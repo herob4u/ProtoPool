@@ -3,82 +3,21 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
-public abstract class ITurnGameHandler
+public interface ITurnGameHandler
 {
-    public abstract void OnTurnPreStart(GamePlayer turnPlayer);
-    public abstract void OnTurnStarted(GamePlayer turnPlayer);
-    public abstract void OnTurnPreEnd(GamePlayer turnPlayer);
-    public abstract void OnTurnEnded(GamePlayer turnPlayer);
-    public abstract void OnTurnAdvanced(GamePlayer turnPlayer);
-
-    public virtual bool CanStartTurn() { return true; }
-    public virtual bool CanEndTurn() { return true; }
-    public virtual bool CanAdvanceTurn() { return true; }
+    //public void OnTurnChanged(ETurnTransitionType transitionType, GamePlayer turnPlayer);
+    //public bool CanTurnTransition(ETurnTransitionType transitionType);
 }
 
-public abstract class TurnController : NetworkBehaviour
+public interface ITurnController
 {
-    protected List<ITurnGameHandler> GameHandlers = new List<ITurnGameHandler>();
-
-    public void StartTurn()
-    {
-        GamePlayer turnPlayer = GetTurnPlayer();
-
-        GameHandlers.ForEach(handler => handler.OnTurnPreStart(turnPlayer));
-        DoStartTurn();
-        GameHandlers.ForEach(handler => handler.OnTurnStarted(turnPlayer));
-    }
-
-    public void AdvanceTurn()
-    {
-        DoAdvanceTurn();
-
-        GamePlayer turnPlayer = GetTurnPlayer();
-        GameHandlers.ForEach(handler => handler.OnTurnAdvanced(turnPlayer));
-    }
-    public void EndTurn()
-    {
-        GamePlayer turnPlayer = GetTurnPlayer();
-        GameHandlers.ForEach(handler => handler.OnTurnPreEnd(turnPlayer));
-        DoEndTurn();
-        GameHandlers.ForEach(handler => handler.OnTurnEnded(turnPlayer));
-    }
-
-    // Interfaces to be implemented...
-    protected abstract void DoStartTurn();
-    protected abstract void DoAdvanceTurn();
-    protected abstract void DoEndTurn();
-
-    // Should return whoever is the current player in the game
-    public abstract GamePlayer GetTurnPlayer();
-    public abstract GamePlayer GetNextTurnPlayer();
-    public abstract void SetTurnPlayer(GamePlayer turnPlayer);
-
-    void Update()
-    {
-        if(IsServer)
-        {
-            ServerUpdate();
-        }
-        else
-        {
-            ClientUpdate();
-        }
-    }
-
-    protected virtual void ServerUpdate()
-    {
-
-    }
-
-    protected virtual void ClientUpdate()
-    {
-
-    }
+    public GamePlayer GetTurnPlayer();
+    public GamePlayer GetNextTurnPlayer();
+    public int NumTurnPlayers();
+    public void SetTurnPlayer(GamePlayer turnPlayer);
 }
 
-
-public class SimpleTurnController : TurnController
+public class SimpleTurnController : NetworkBehaviourExt, ITurnController
 {
     public enum ETurnState
     {
@@ -175,6 +114,7 @@ public class SimpleTurnController : TurnController
 
     protected override void ServerUpdate()
     {
+        /*
         if (TurnState.Value != ETurnState.None)
         {
             // Handle turn states
@@ -219,6 +159,7 @@ public class SimpleTurnController : TurnController
                 }
             }
         }
+        */
     }
 
     // Called whenever the list of players is altered. Ensures a valid turn player is selected.
@@ -237,14 +178,14 @@ public class SimpleTurnController : TurnController
             if(GetTurnPlayer() != nextPlayer)
             {
                 Debug.LogWarning("Ending turn because no valid player is selected for TurnController");
-                EndTurn();
+                //EndTurn();
             }
         }
 
         Debug.LogWarning("No players left for TurnController");
     }
 
-    public override void SetTurnPlayer(GamePlayer turnPlayer)
+    public void SetTurnPlayer(GamePlayer turnPlayer)
     {
         if (TurnState.Value != ETurnState.None)
         {
@@ -262,7 +203,7 @@ public class SimpleTurnController : TurnController
         CurrentPlayerIdx = playerIdx;
     }
 
-    public override GamePlayer GetTurnPlayer()
+    public GamePlayer GetTurnPlayer()
     {
         if (CurrentPlayerIdx >= 0)
         {
@@ -274,10 +215,15 @@ public class SimpleTurnController : TurnController
         return null;
     }
 
-    public override GamePlayer GetNextTurnPlayer()
+    public GamePlayer GetNextTurnPlayer()
     {
         int nextIdx = GetNextTurnPlayerIdx();
         return GamePlayers[nextIdx];
+    }
+
+    public int NumTurnPlayers()
+    {
+        return GamePlayers.Count;
     }
 
     protected int GetNextTurnPlayerIdx()
@@ -290,7 +236,7 @@ public class SimpleTurnController : TurnController
 
         return nextIdx;
     }
-
+    /*
     protected override void DoStartTurn()
     {
         if (!IsServer)
@@ -345,7 +291,7 @@ public class SimpleTurnController : TurnController
 
         SetTurnState(ETurnState.Advancing);
     }
-
+    */
     protected virtual void HandlePlayerRelinquishedTurn(GamePlayer prevPlayer)
     {
         if (OnPlayerRelinquishedTurn != null)

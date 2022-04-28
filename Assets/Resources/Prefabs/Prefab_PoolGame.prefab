@@ -61,7 +61,33 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20b40c6aecb972348adc1f6063e59afa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  bAdvanceTurnOnStart: 0
+  StateConfig:
+    TurnStateConfigEntries:
+    - FromState:
+        _classRef: TurnStates.Start, GameAssembly
+      ToState:
+        _classRef: TurnStates.PrePlay, GameAssembly
+    - FromState:
+        _classRef: TurnStates.PrePlay, GameAssembly
+      ToState:
+        _classRef: TurnStates.Rack, GameAssembly
+    - FromState:
+        _classRef: TurnStates.Rack, GameAssembly
+      ToState:
+        _classRef: TurnStates.InPlay, GameAssembly
+    - FromState:
+        _classRef: TurnStates.InPlay, GameAssembly
+      ToState:
+        _classRef: TurnStates.WaitForRest, GameAssembly
+    - FromState:
+        _classRef: TurnStates.WaitForRest, GameAssembly
+      ToState:
+        _classRef: TurnStates.EndTurn, GameAssembly
+    - FromState:
+        _classRef: TurnStates.EndTurn, GameAssembly
+      ToState:
+        _classRef: TurnStates.PrePlay, GameAssembly
+  CurrentPlayerIdx: -1
 --- !u!1 &8488930364526152376
 GameObject:
   m_ObjectHideFlags: 0

@@ -42,17 +42,9 @@ public class NetworkMeshRenderer : NetworkBehaviourExt
     // Update is called once per frame
     void Update()
     {
-        if(IsServer)
-        {
-            ServerUpdate();
-        }
-        else
-        {
-            ClientUpdate();
-        }
     }
 
-    void ServerUpdate()
+    protected override void ServerUpdate()
     {
         if(UpdateEnabled)
         {
@@ -74,7 +66,7 @@ public class NetworkMeshRenderer : NetworkBehaviourExt
         }
     }
 
-    void ClientUpdate()
+    protected override void ClientUpdate()
     {
 
     }

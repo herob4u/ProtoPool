@@ -18,3 +18,9 @@ public class GamePlayer
         IsReady = true;
     }
 }
+
+public interface IGamePlayerObserver
+{
+    void OnGamePlayerAdded(GamePlayer player);
+    void OnGamePlayerRemoved(GamePlayer player);
+}
